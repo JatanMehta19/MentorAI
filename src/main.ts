@@ -9,9 +9,11 @@ import { renderSubjectPage, renderSettingsPlaceholder } from './screens/subject'
 import { renderProgressPage } from './screens/progress';
 import { renderSidebar } from './components/sidebar';
 import type { StudentProfile, Lesson, Grade, Language, Subject, Progress } from './types';
-import { renderLessonScreen } from './screens/lesson';  
+import { renderLessonScreen, type TutorMessage } from './screens/lesson';  // ← NEW: added TutorMessage
+import { getTutorResponse } from './gemini';  // ← NEW
 import { startQuiz, renderQuizScreen, renderQuizSummary, selectAnswer, useHint, goToNextQuestion, submitQuiz, getQuizProgress, calculateScore, calculateXP } from './screens/quiz';
 import { startBossBattle, renderBossScreen, renderBossSummary, selectBossAnswer, useBossHint, goToNextBossQuestion, calculateBossScore, calculateBossXP, isBossDefeated } from './screens/boss';
+
 
 // ── App State ─────────────────────────────────────────────────────────────────
 
@@ -26,6 +28,41 @@ let app: HTMLElement;
 let profile: StudentProfile | null = null;
 let lessons: Lesson[] = [];
 let recentProgress: Progress[] = [];
+
+// ── Chat State ────────────────────────────────────────────────────────────────  ← NEW
+let tutorMessages: TutorMessage[] = [];
+let isTutorThinking = false;
+
+function uniqueMessageId(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function updateChatUI(): void {  // ← NEW: updates only the chat div, never re-renders whole page
+  const messagesEl = document.getElementById('tutor-messages');
+  if (!messagesEl) return;
+
+  messagesEl.innerHTML = tutorMessages.map(msg => `
+    <div class="${msg.role === 'mentor' ? 'tutor-message' : 'student-message'}">
+      ${escapeHtml(msg.text)}
+    </div>
+  `).join('') + (isTutorThinking ? `
+    <div class="tutor-typing">
+      <span></span><span></span><span></span>
+    </div>
+  ` : '');
+
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
 
 // ── Navigation ───────────────────────────────────────────────────────────────
 
@@ -42,7 +79,8 @@ async function navigateTo(page: string): Promise<void> {
   render();
 }
 
-// ── Render ─────────────────────────────────────────────────────────────────
+
+// ── Render ────────────────────────────────────────────────────────────────────
 
 async function render(): Promise<void> {
   app.innerHTML = '';
@@ -72,9 +110,9 @@ async function render(): Promise<void> {
       lessons: lessons.filter(l => l.subject === currentSubject),
       profile,
       isOnline,
-onSelectLesson: (lessonId) => {
-        currentLessonId = lessonId;   // ← save the selected lesson id
-        currentPage = 'quiz';          // ← navigate directly to quiz
+      onSelectLesson: (lessonId) => {
+        currentLessonId = lessonId;
+        currentPage = 'quiz';
         render();
       },
       onStartBoss: (subject) => {
@@ -89,13 +127,25 @@ onSelectLesson: (lessonId) => {
   } else if (currentPage === 'lesson' && currentLessonId) {
     const selectedLesson = lessons.find(l => l.id === currentLessonId);
     if (selectedLesson) {
+
+      // ← NEW: seed welcome message when entering lesson fresh
+      if (tutorMessages.length === 0) {
+        tutorMessages = [{
+          id: uniqueMessageId(),
+          role: 'mentor',
+          text: `Hi! I'm your MentorAI tutor. Today we're working on "${selectedLesson.title}". Ask me anything! 🧠`,
+        }];
+      }
+
       mainContent = renderLessonScreen({
         lesson: selectedLesson,
         profile,
         isOnline,
-        messages: [],
-        isTutorThinking: false,
+        messages: tutorMessages,          // ← NEW
+        isTutorThinking: isTutorThinking, // ← NEW
         onGoBack: () => {
+          tutorMessages = [];             // ← NEW: reset chat on back
+          isTutorThinking = false;
           currentPage = currentSubject as Page;
           currentLessonId = null;
           render();
@@ -104,9 +154,35 @@ onSelectLesson: (lessonId) => {
           currentPage = 'quiz';
           render();
         },
-        onSendMessage: async (prompt: string) => {
-          console.log('Tutor message:', prompt);
-        }
+        onSendMessage: async (prompt: string) => {  // ← NEW: full Gemini implementation
+          tutorMessages = [
+            ...tutorMessages,
+            { id: uniqueMessageId(), role: 'student', text: prompt },
+          ];
+          isTutorThinking = true;
+          updateChatUI(); // ← only update chat, not whole page
+
+          try {
+            const reply = await getTutorResponse(
+              prompt,
+              selectedLesson.content,
+              selectedLesson.grade,
+            );
+            tutorMessages = [
+              ...tutorMessages,
+              { id: uniqueMessageId(), role: 'mentor', text: reply },
+            ];
+          } catch (err) {
+            console.error('Gemini error:', err);
+            tutorMessages = [
+              ...tutorMessages,
+              { id: uniqueMessageId(), role: 'mentor', text: "Sorry, I couldn't connect. Try again in a moment! 🔌" },
+            ];
+          } finally {
+            isTutorThinking = false;
+            updateChatUI();
+          }
+        },
       });
     } else {
       currentPage = currentSubject as Page;
@@ -131,14 +207,13 @@ onSelectLesson: (lessonId) => {
       const bossState = currentBoss || startBossBattle(subjectLessons, currentSubject);
       if (!currentBoss) currentBoss = bossState;
       const currentProfile = profile;
-      
+
       const handleBossNext = async () => {
         const defeated = isBossDefeated();
         if (defeated) {
           const bossScore = calculateBossScore();
           const answered = bossState.answers.length;
           const bossXP = calculateBossXP(bossScore, answered);
-          // Save boss progress
           if (currentProfile) {
             await saveProgress({
               nickname: currentProfile.nickname,
@@ -204,7 +279,7 @@ onSelectLesson: (lessonId) => {
           );
         }
       };
-      
+
       mainContent = renderBossScreen({
         subject: currentSubject,
         onSelectAnswer: (index) => { selectBossAnswer(index); },
@@ -212,7 +287,6 @@ onSelectLesson: (lessonId) => {
         onNext: handleBossNext,
         onFinish: () => { handleBossNext(); },
         onTimeUp: () => {
-          // Time's up - boss wins!
           app.innerHTML = '';
           app.appendChild(
             renderBossSummary(0, 0, bossState.hintsUsed, bossState.answers.length, () => {
@@ -238,7 +312,7 @@ onSelectLesson: (lessonId) => {
       if (!currentQuiz) {
         currentQuiz = await startQuiz(selectedLesson, { hintsRemaining: 3 });
       }
-      
+
       const handleNext = async () => {
         const moved = goToNextQuestion();
         if (moved) {
@@ -264,7 +338,7 @@ onSelectLesson: (lessonId) => {
           }
         }
       };
-      
+
       mainContent = renderQuizScreen({
         onSelectAnswer: (index) => { selectAnswer(index); },
         onUseHint: () => { useHint(); },
@@ -294,17 +368,16 @@ onSelectLesson: (lessonId) => {
   app.appendChild(layout);
 }
 
-// ── Quiz Progress ─────────────────────────────────────────────────────────
+
+// ── Quiz Progress ─────────────────────────────────────────────────────────────
 
 async function saveProgressRecord(lesson: Lesson, score: number, xpEarned: number, hintsUsed: number): Promise<void> {
   const currentProfile = profile;
   if (!currentProfile) return;
-  
-  const lessonId = lesson.id!;
-  
+
   await saveProgress({
     nickname: currentProfile.nickname,
-    lessonId: lessonId,
+    lessonId: lesson.id!,
     lessonTitle: lesson.title,
     subject: lesson.subject,
     score,
@@ -313,7 +386,7 @@ async function saveProgressRecord(lesson: Lesson, score: number, xpEarned: numbe
     hintsUsed,
     completedAt: new Date().toISOString(),
   });
-  
+
   currentProfile.totalXP += xpEarned;
   if (lesson.subject === 'math') {
     currentProfile.mathXP = (currentProfile.mathXP ?? 0) + xpEarned;
@@ -322,7 +395,8 @@ async function saveProgressRecord(lesson: Lesson, score: number, xpEarned: numbe
   }
 }
 
-// ── Onboarding ────────────────────────���───────────────────────────────────────
+
+// ── Onboarding ────────────────────────────────────────────────────────────────
 
 function setupOnboardingHandlers(): void {
   setTimeout(() => {
@@ -345,8 +419,8 @@ function setupOnboardingHandlers(): void {
       };
 
       await createProfile(newProfile);
-      profile  = { ...newProfile, id: 1 } as StudentProfile;
-      lessons  = await getLessons(profile.grade, 'math', 'en');
+      profile = { ...newProfile, id: 1 } as StudentProfile;
+      lessons = await getLessons(profile.grade, 'math', 'en');
       recentProgress = await getProgressForStudent(profile.nickname);
       currentPage = 'dashboard';
       render();
@@ -364,7 +438,6 @@ function setupSubjectPageHandlers(): void {
       btn.addEventListener('click', (e) => {
         const target = e.currentTarget as HTMLElement;
         const lessonId = parseInt(target.dataset.action!.replace('start-lesson-', ''), 10);
-        console.log('START LESSON CLICKED', lessonId);
         currentLessonId = lessonId;
         currentPage = 'lesson';
         render();
@@ -375,21 +448,19 @@ function setupSubjectPageHandlers(): void {
 
 function setupProgressPageHandlers(): void {
   setTimeout(() => {
-    const continueMathBtn = document.querySelector('[data-action="continue-math"]');
-    continueMathBtn?.addEventListener('click', () => {
+    document.querySelector('[data-action="continue-math"]')?.addEventListener('click', () => {
       currentSubject = 'math';
       navigateTo('math');
     });
-
-    const continueElaBtn = document.querySelector('[data-action="continue-ela"]');
-    continueElaBtn?.addEventListener('click', () => {
+    document.querySelector('[data-action="continue-ela"]')?.addEventListener('click', () => {
       currentSubject = 'ela';
       navigateTo('ela');
     });
   }, 100);
 }
 
-// ── Event Delegation ─────────────────────────────────────────────────────────
+
+// ── Event Delegation ──────────────────────────────────────────────────────────
 
 document.addEventListener('click', (e) => {
   const target = e.target as HTMLElement;
@@ -402,18 +473,16 @@ document.addEventListener('click', (e) => {
   }
 });
 
+
 // ── Boot ──────────────────────────────────────────────────────────────────────
 
 async function init(): Promise<void> {
   app = document.getElementById('app')!;
-
   await seedLessons();
   initOfflineSync();
   preloadLessons().catch(console.error);
-
   window.addEventListener('online',  () => render());
   window.addEventListener('offline', () => render());
-
   console.log('[MentorAI] Boot complete');
   render();
 }

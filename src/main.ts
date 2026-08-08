@@ -1,6 +1,6 @@
 // src/main.ts
 import './style.css';
-import { seedLessons, getLessonsForGrade, createProfile, getProgressForStudent, saveProgress } from './db';
+import { seedLessons, getLessonsForGrade, createProfile, getProgressForStudent, saveProgress, markQuestionAnswered } from './db';
 import { initOfflineSync } from '../utils/offline';
 import { preloadLessons } from './preload';
 import { renderOnboarding, state as onboardingState } from './screens/onboarding';
@@ -11,7 +11,7 @@ import { renderSidebar } from './components/sidebar';
 import type { StudentProfile, Lesson, Grade, Language, Subject, Progress } from './types';
 import { renderLessonScreen, type TutorMessage } from './screens/lesson';  // ← NEW: added TutorMessage
 import { getTutorResponse } from './gemini';  // ← NEW
-import { startQuiz, renderQuizScreen, renderQuizSummary, selectAnswer, useHint, goToNextQuestion, submitQuiz, getQuizProgress, calculateScore, calculateXP } from './screens/quiz';
+import { startQuiz, renderQuizScreen, renderQuizSummary, selectAnswer, useHint, goToNextQuestion, submitQuiz, getQuizProgress, calculateScore, calculateXP, getCurrentQuestion, getCurrentQuestionIndex } from './screens/quiz';
 import { startBossBattle, renderBossScreen, renderBossSummary, selectBossAnswer, useBossHint, goToNextBossQuestion, calculateBossScore, calculateBossXP, isBossDefeated } from './screens/boss';
 
 
@@ -340,7 +340,10 @@ async function render(): Promise<void> {
       };
 
       mainContent = renderQuizScreen({
-        onSelectAnswer: (index) => { selectAnswer(index); },
+        onSelectAnswer: (index) => {
+          selectAnswer(index);
+          void recordAnswer(selectedLesson, index);
+        },
         onUseHint: () => { useHint(); },
         onNext: handleNext,
         onFinish: () => { handleNext(); },
@@ -370,6 +373,30 @@ async function render(): Promise<void> {
 
 
 // ── Quiz Progress ─────────────────────────────────────────────────────────────
+
+/**
+ * Record an answer to IndexedDB and let the sync engine queue any Gemini follow-up.
+ *
+ * Deliberately fire-and-forget: answering must stay instant and must never fail
+ * because a write or a queue push failed. The student action is the source of
+ * truth; network work is queued behind it and drains later.
+ */
+async function recordAnswer(lesson: Lesson, answerIndex: number): Promise<void> {
+  if (lesson.id === undefined) return;
+
+  const question = getCurrentQuestion();
+  if (!question) return;
+
+  try {
+    await markQuestionAnswered(
+      lesson.id,
+      getCurrentQuestionIndex(),
+      answerIndex === question.correctIndex
+    );
+  } catch (err) {
+    console.error('[Quiz] Failed to record answer:', err);
+  }
+}
 
 async function saveProgressRecord(lesson: Lesson, score: number, xpEarned: number, hintsUsed: number): Promise<void> {
   const currentProfile = profile;

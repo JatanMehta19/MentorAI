@@ -123,8 +123,13 @@ export async function hasPreloadedLessons(): Promise<boolean> {
 
 /**
  * Mark a single question in a lesson as answered.
- * Person 3 calls this after every answer in the quiz engine.
+ * Called after every answer in the quiz engine.
  * Works 100% offline — writes directly to IndexedDB.
+ *
+ * Idempotent per question. Retaking a quiz re-answers questions that are already
+ * correct, so queueing is gated on the answer actually transitioning to correct.
+ * Without that gate a retake re-queues a replacement for every question, and
+ * re-fires generate_lesson on every single answer once a lesson is fully aced.
  */
 export async function markQuestionAnswered(
   lessonId:      number,
@@ -134,14 +139,23 @@ export async function markQuestionAnswered(
   const lesson = await db.lessons.get(lessonId);
   if (!lesson) return;
 
+  const currentQ = lesson.questions[questionIndex];
+  if (!currentQ) return;
+
+  // Capture before mutating — this is what tells a real transition from a repeat click
+  const wasAlreadyCorrect = currentQ.answered === true && currentQ.correct === true;
+
   // Update the specific question in the array
-  lesson.questions[questionIndex].answered = true;
-  lesson.questions[questionIndex].correct  = isCorrect;
+  currentQ.answered = true;
+  currentQ.correct  = isCorrect;
 
   await db.lessons.update(lessonId, { questions: lesson.questions });
 
+  // Nothing further to queue if this question was already correct — the lesson
+  // state is unchanged, so any queue item it would produce is already pending.
+  if (wasAlreadyCorrect) return;
+
   // Queue Gemini replacement if answered correctly and not at max difficulty
-  const currentQ = lesson.questions[questionIndex];
   if (isCorrect && currentQ.difficulty < 3) {
     await addToSyncQueue('replace_question', {
       lessonId:      lessonId,
@@ -153,7 +167,7 @@ export async function markQuestionAnswered(
     });
   }
 
-  // Auto-queue entire new lesson if student aced the whole existing lesson
+  // Auto-queue entire new lesson the moment the student aces the whole lesson
   const allCorrect = lesson.questions.every(q => q.answered && q.correct);
   if (allCorrect) {
     await addToSyncQueue('generate_lesson', {

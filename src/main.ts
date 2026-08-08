@@ -1,6 +1,6 @@
 // src/main.ts
 import './style.css';
-import { seedLessons, getLessons, createProfile, getProgressForStudent, saveProgress } from './db';
+import { seedLessons, getLessonsForGrade, createProfile, getProgressForStudent, saveProgress } from './db';
 import { initOfflineSync } from '../utils/offline';
 import { preloadLessons } from './preload';
 import { renderOnboarding, state as onboardingState } from './screens/onboarding';
@@ -70,7 +70,7 @@ async function navigateTo(page: string): Promise<void> {
   if (page === 'math' || page === 'ela') {
     currentSubject = page as Subject;
     if (profile) {
-      lessons = await getLessons(profile.grade, page as Subject, 'en');
+      lessons = await getLessonsForGrade(profile.grade, 'en');
     }
     currentPage = page as Page;
   } else if (page === 'dashboard' || page === 'progress' || page === 'settings') {
@@ -420,7 +420,7 @@ function setupOnboardingHandlers(): void {
 
       await createProfile(newProfile);
       profile = { ...newProfile, id: 1 } as StudentProfile;
-      lessons = await getLessons(profile.grade, 'math', 'en');
+      lessons = await getLessonsForGrade(profile.grade, 'en');
       recentProgress = await getProgressForStudent(profile.nickname);
       currentPage = 'dashboard';
       render();

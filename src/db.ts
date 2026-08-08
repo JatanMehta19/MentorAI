@@ -66,6 +66,18 @@ export async function getLessons(
 }
 
 /**
+ * Fetch every lesson for a grade, across all subjects.
+ * The dashboard counts math and ELA side by side, so it needs both at once.
+ * Screens that show a single subject filter this list themselves.
+ */
+export async function getLessonsForGrade(
+  grade: Grade,
+  language: Language
+): Promise<Lesson[]> {
+  return db.lessons.where({ grade, language }).toArray();
+}
+
+/**
  * Save a single Gemini-generated lesson to the local database.
  * Returns the auto-assigned numeric id of the new record.
  */

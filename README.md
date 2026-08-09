@@ -57,11 +57,21 @@ npm run preview
 
 ### Gemini API key
 
-AI features read a key from `VITE_GEMINI_KEY`. Create a `.env` in the project root:
+The key is held server-side and never reaches the browser. Copy `.env.example` to `.env` in
+the project root:
 
 ```
-VITE_GEMINI_KEY=your_key_here
+GEMINI_API_KEY=your_key_here
 ```
+
+The name deliberately has no `VITE_` prefix. Vite inlines every `import.meta.env.VITE_*`
+value into the public bundle at build time, so a `VITE_`-prefixed key would be readable by
+anyone who opens devtools. This one is read only in Node — by the serverless function in
+`api/gemini.ts` in production, and by a small dev middleware in `vite.config.ts` locally, so
+`npm run dev` and `npm run preview` both work without extra tooling. The browser only ever
+talks to a same-origin `/api/gemini`.
+
+When deploying, set `GEMINI_API_KEY` in your host's environment variables, not in the repo.
 
 **The app runs fine without one.** The ten bundled lessons are seeded into IndexedDB
 independently of Gemini, so the entire lesson, quiz, and boss-battle flow works. Only the
@@ -122,17 +132,19 @@ fallback when not, which keeps the branching out of the calling code.
 
 This section is deliberately specific. Nothing below is fixed yet.
 
-- **The sync engine is not wired into the quiz flow.** `utils/offline.ts` is implemented and
-  self-contained, but no code path currently calls `markQuestionAnswered`, which is the only
-  producer of queue items. In the running app the queue stays empty. Connecting it is the
-  next piece of work.
-- **The Gemini API key ships in the client bundle.** `VITE_GEMINI_KEY` is inlined at build
-  time, so it's readable by anyone who opens devtools. A serverless proxy holding the key
-  server-side is the fix. The hosted demo is deployed without a key for this reason.
-- **Gemini responses are parsed without guards.** `callGemini` indexes directly into
-  `data.candidates[0].content.parts[0].text`, which throws on a blocked or empty response,
-  and `JSON.parse` runs on model output after only stripping code fences. There's no request
-  timeout and no retry on 429 or 503.
+- **The boss battle does not feed the sync engine.** The quiz path records every answer via
+  `markQuestionAnswered`, but `startBossBattle` builds its question pool with
+  `flatMap(l => l.questions)` and discards the lesson id, so boss answers cannot be attributed
+  to a lesson. Wiring it needs `BossState` to carry `{ lessonId, questionIndex }`.
+- **The proxy forwards an arbitrary prompt.** `api/gemini.ts` keeps the key server-side and
+  rejects cross-origin callers, but it still relays whatever prompt it is given. Origin headers
+  are trivially forged outside a browser, so the endpoint could be used as a general-purpose
+  Gemini relay against the deployment's quota. The fix is an action-based API
+  (`{ action, params }`) that builds prompts server-side. There is no rate limiting.
+- **Model output is still parsed loosely.** The response envelope is now guarded and requests
+  time out after 15s, but `JSON.parse` still runs on model output after only stripping code
+  fences, prompts ask for JSON instead of using Gemini's `responseSchema` structured output,
+  and there's no retry on 429 or 503.
 - **Generated answers are unverified.** Nothing checks that a generated question's
   `correctIndex` is actually correct, or even in range, before showing it to a student.
 - **The progress view is device-local.** `src/screens/teacher.ts` reads the same browser's

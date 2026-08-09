@@ -1,24 +1,42 @@
 // src/gemini.ts
 import type { Lesson, GeminiLessonResponse, Subject, Grade, Language, Question } from './types';
 
-const API_KEY = import.meta.env.VITE_GEMINI_KEY as string;
-const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`;
+// The API key lives server-side in api/gemini.ts and is never shipped to the
+// browser. Anything read via import.meta.env.VITE_* is inlined into the public
+// bundle at build time, so the key must never come back here.
+const PROXY_URL  = '/api/gemini';
+const TIMEOUT_MS = 15000;
 
 // ── Core Fetch ────────────────────────────────────────────────────────────────
 
 async function callGemini(prompt: string): Promise<string> {
-  const res = await fetch(API_URL, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }]
-    })
-  });
+  // The sync queue drains serially, so one hung request would stall every
+  // item behind it.
+  const controller = new AbortController();
+  const timeout    = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
-  if (!res.ok) throw new Error(`Gemini API error: ${res.status}`);
+  try {
+    const res = await fetch(PROXY_URL, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ prompt }),
+      signal:  controller.signal,
+    });
 
-  const data = await res.json();
-  return data.candidates[0].content.parts[0].text as string;
+    const data = await res.json().catch(() => null) as
+      { text?: string; error?: string } | null;
+
+    if (!res.ok) {
+      throw new Error(data?.error ?? `Gemini proxy error: ${res.status}`);
+    }
+    if (typeof data?.text !== 'string') {
+      throw new Error('Gemini proxy returned no text.');
+    }
+
+    return data.text;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 // ── Lesson Generation ─────────────────────────────────────────────────────────

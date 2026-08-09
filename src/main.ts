@@ -3,7 +3,7 @@ import './style.css';
 import { seedLessons, getLessonsForGrade, createProfile, getProgressForStudent, saveProgress, markQuestionAnswered } from './db';
 import { initOfflineSync } from '../utils/offline';
 import { preloadLessons } from './preload';
-import { renderOnboarding, state as onboardingState } from './screens/onboarding';
+import { renderOnboarding, type OnboardingData } from './screens/onboarding';
 import { renderDashboard } from './screens/dashboard';
 import { renderSubjectPage, renderSettingsPlaceholder } from './screens/subject';
 import { renderProgressPage } from './screens/progress';
@@ -87,8 +87,7 @@ async function render(): Promise<void> {
   const isOnline = navigator.onLine;
 
   if (currentPage === 'onboarding') {
-    app.appendChild(renderOnboarding());
-    setupOnboardingHandlers();
+    app.appendChild(renderOnboarding({ isOnline, onStart: handleOnboardingStart }));
     return;
   }
 
@@ -425,34 +424,28 @@ async function saveProgressRecord(lesson: Lesson, score: number, xpEarned: numbe
 
 // ── Onboarding ────────────────────────────────────────────────────────────────
 
-function setupOnboardingHandlers(): void {
-  setTimeout(() => {
-    const startBtn = document.getElementById('start-btn');
-    if (!startBtn) { setTimeout(setupOnboardingHandlers, 200); return; }
+/** Create the local profile and drop the student on the dashboard. */
+async function handleOnboardingStart(data: OnboardingData): Promise<void> {
+  if (!data.nickname || !data.grade) return;
 
-    startBtn.addEventListener('click', async () => {
-      if (!onboardingState.nickname || !onboardingState.grade) return;
+  const newProfile: Omit<StudentProfile, 'id'> = {
+    nickname:     data.nickname,
+    grade:        data.grade as Grade,
+    language:     'en' as Language,
+    totalXP:      0,
+    mathXP:       0,
+    elaXP:        0,
+    currentLevel: 1,
+    streak:       0,
+    lastActive:   new Date().toISOString(),
+  };
 
-      const newProfile: Omit<StudentProfile, 'id'> = {
-        nickname:     onboardingState.nickname,
-        grade:        onboardingState.grade as Grade,
-        language:     'en' as Language,
-        totalXP:      0,
-        mathXP:       0,
-        elaXP:        0,
-        currentLevel: 1,
-        streak:       0,
-        lastActive:   new Date().toISOString(),
-      };
-
-      await createProfile(newProfile);
-      profile = { ...newProfile, id: 1 } as StudentProfile;
-      lessons = await getLessonsForGrade(profile.grade, 'en');
-      recentProgress = await getProgressForStudent(profile.nickname);
-      currentPage = 'dashboard';
-      render();
-    });
-  }, 100);
+  const id = await createProfile(newProfile);
+  profile = { ...newProfile, id };
+  lessons = await getLessonsForGrade(profile.grade, 'en');
+  recentProgress = await getProgressForStudent(profile.nickname);
+  currentPage = 'dashboard';
+  render();
 }
 
 function setupSubjectPageHandlers(): void {

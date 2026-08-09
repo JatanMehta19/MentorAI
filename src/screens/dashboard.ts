@@ -57,7 +57,7 @@ export function renderDashboard(options: DashboardOptions): HTMLElement {
             </div>
           </div>
           <div class="stat-card">
-            <div class="stat-icon teal">📚</div>
+            <div class="stat-icon accent">📚</div>
             <div class="stat-info">
               <div class="stat-label">Lessons</div>
               <div class="stat-value">${options.lessons.length}</div>

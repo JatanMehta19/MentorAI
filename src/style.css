@@ -5,54 +5,65 @@
 
 
 :root {
-  /* Brand Colors */
-  --primary:        #6C63FF;
-  --primary-hover:  #5A52E0;
-  --primary-light:  #EEEDFF;
-  --teal:           #48D1CC;
-  --teal-hover:     #3AB8B3;
-  --teal-light:     #E0F7F6;
+  /* Brand — deep teal (primary actions, active nav, Math) */
+  --primary:        #1F6F63;
+  --primary-hover:  #17564D;
+  --primary-light:  #E4EDE9;   /* tinted teal fill */
 
-  /* Neutrals - Light Theme per Figma */
-  --bg:             #F7F8FC;
-  --bg-gradient:    linear-gradient(135deg, #F7F8FC 0%, #EDE9FE 100%);
-  --surface:        #FFFFFF;
-  --surface-glass: rgba(255,255,255,0.7);
-  --border:         rgba(0,0,0,0.08);
-  --border-light:  rgba(0,0,0,0.04);
-  --text-1:         #1A1A2E;
-  --text-2:         #4B5563;
-  --text-3:         #6B7280;
+  /* Accent — warm ochre (ELA, secondary).
+     Fine for fills and icons; use --accent-hover for accent-colored TEXT,
+     which is the variant that clears AA on cream. */
+  --accent:         #B4832C;
+  --accent-hover:   #976D22;
+  --accent-light:   #F6EEDC;
 
-  /* Semantic */
-  --gold:           #FFD700;
-  --orange:         #F97316;
-  --green:          #10B981;
-  --red:            #EF4444;
-  --green-light:    #ECFDF5;
-  --red-light:      #FEF2F2;
+  /* Warm neutrals */
+  --bg:             #F6F1E7;   /* page cream                     */
+  --surface:        #FDFBF6;   /* cards, inputs                  */
+  --panel:          #1F6F63;   /* sidebar / brand panel          */
+  --on-panel:       #F4F1EA;   /* text + icons on the teal panel */
+  --panel-line:     rgba(244,241,234,0.15);
+  --track:          #ECE6D9;   /* bar tracks, segmented control  */
+  --border:         #E2DCCD;
+  --border-light:   #EDE7DA;
+  --text-1:         #1C1A15;
+  --text-2:         #5D584E;
+  --text-3:         #7A7466;   /* muted; darkened from the mockup's #8B857A
+                                  so 11–13px text clears 4.5:1 on cream */
+
+  /* Semantic — warm-shifted, meanings unchanged */
+  --gold:           #F6D675;
+  --gold-deep:      #A9761F;   /* text on --gold-light */
+  --gold-light:     #FAF0D4;
+  --orange:         #C97B36;
+  --orange-light:   #F7E8D8;
+  --green:          #27684B;   /* 5.7:1 on --green-light — #2E7D5B fell short */
+  --green-light:    #E4F0EA;
+  --red:            #B04A35;
+  --red-light:      #F8E8E3;
 
   /* Layout */
   --sidebar-w:      240px;
   --radius-sm:      14px;
   --radius:         18px;
   --radius-lg:      24px;
-  --shadow:         0 8px 24px rgba(0,0,0,0.05);
-  --shadow-lg:      0 12px 40px rgba(108,99,255,0.12);
-  --shadow-button:   0 4px 16px rgba(108,99,255,0.25);
+  --radius-full:    999px;
+  --shadow:         0 2px 8px rgba(28,26,21,0.05);
+  --shadow-lg:      0 12px 32px rgba(28,26,21,0.10);
+  --shadow-button:  0 4px 14px rgba(31,111,99,0.25);
 
   /* Typography */
   --font-display:   'Poppins', sans-serif;
   --font-body:      'Inter', sans-serif;
+  --font-mono:      ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
-/* Premium Background */
 html, body {
   height: 100%;
   margin: 0;
   padding: 0;
   font-family: var(--font-body);
-  background: var(--bg-gradient);
+  background: var(--bg);
   color: var(--text-1);
   font-size: 15px;
   line-height: 1.55;
@@ -96,14 +107,10 @@ button { font-family: var(--font-body); }
   left: 0;
   width: var(--sidebar-w);
   height: 100vh;
-  background: rgba(255,255,255,0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-right: 1px solid var(--border);
+  background: var(--panel);
   display: flex;
   flex-direction: column;
   z-index: 100;
-  box-shadow: 2px 0 12px rgba(0,0,0,0.04);
 }
 
 .sidebar-nav {
@@ -120,8 +127,8 @@ button { font-family: var(--font-body); }
   align-items: center;
   gap: 10px;
   padding: 12px 16px;
-  border-radius: 12px;
-  color: var(--text-2);
+  border-radius: var(--radius-full);
+  color: rgba(244,241,234,0.75);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -135,13 +142,14 @@ button { font-family: var(--font-body); }
 }
 
 .nav-item:hover {
-  background: rgba(108,99,255,0.1);
-  color: var(--primary);
+  background: rgba(244,241,234,0.10);
+  color: var(--on-panel);
 }
 
+/* Cream pill on teal — the same treatment as the login's segmented control. */
 .nav-item.active {
-  background: var(--primary);
-  color: white;
+  background: var(--surface);
+  color: var(--primary);
   font-weight: 600;
 }
 
@@ -150,24 +158,28 @@ button { font-family: var(--font-body); }
   align-items: center;
   gap: 10px;
   padding: 22px 20px 18px;
-  border-bottom: 1px solid var(--border-light);
+  border-bottom: 1px solid var(--panel-line);
 }
 
+/* Same mark as the login's .brand-mark, so both screens agree on the logo. */
 .sidebar-logo-icon {
   width: 34px; height: 34px;
-  background: var(--primary-light);
+  background: var(--gold);
+  color: var(--text-1);
   border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-family: var(--font-display);
   font-size: 17px;
+  font-weight: 700;
 }
 
 .sidebar-logo-text {
   font-family: var(--font-display);
   font-size: 16px;
   font-weight: 700;
-  color: var(--text-1);
+  color: var(--on-panel);
 }
 
 .sidebar-nav {
@@ -192,7 +204,7 @@ button { font-family: var(--font-body); }
 
 .sidebar-footer {
   padding: 14px 16px;
-  border-top: 1px solid var(--border-light);
+  border-top: 1px solid var(--panel-line);
   display: flex;
   align-items: center;
   gap: 10px;
@@ -200,12 +212,12 @@ button { font-family: var(--font-body); }
 
 .student-avatar {
   width: 34px; height: 34px;
-  background: var(--primary);
+  background: var(--gold);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
+  color: var(--text-1);
   font-weight: 700;
   font-size: 13px;
   flex-shrink: 0;
@@ -216,7 +228,7 @@ button { font-family: var(--font-body); }
 .student-name {
   font-size: 13px;
   font-weight: 600;
-  color: var(--text-1);
+  color: var(--on-panel);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -224,7 +236,7 @@ button { font-family: var(--font-body); }
 
 .student-level {
   font-size: 11px;
-  color: var(--text-3);
+  color: rgba(244,241,234,0.65);
   display: flex;
   align-items: center;
   gap: 3px;
@@ -234,9 +246,13 @@ button { font-family: var(--font-body); }
 .level-dot {
   width: 6px; height: 6px;
   border-radius: 50%;
-  background: var(--green);
+  background: var(--gold);
   display: inline-block;
 }
+
+/* sidebar.ts emits data-is-online but nothing ever consumed it — the dot
+   stayed "online" while offline. Mirrors the login's .brand-net-dot. */
+.level-dot[data-is-online="false"] { background: var(--orange); }
 
 /* ── Loading Screen ──────────────────────────────────────────────────────── */
 .loading-screen {
@@ -246,7 +262,7 @@ button { font-family: var(--font-body); }
   align-items: center;
   justify-content: center;
   gap: 14px;
-  background: linear-gradient(135deg, #F0EEFF 0%, #E8F4FF 100%);
+  background: var(--bg);
 }
 
 .loading-logo {
@@ -266,141 +282,230 @@ button { font-family: var(--font-body); }
   color: var(--text-3);
 }
 
-/* ── Onboarding ──────────────────────────────────────────────────────────── */
+/* ── Onboarding ──────────────────────────────────────────────────────────────
+   Split layout: teal brand panel on the left, form on the right. No backdrop
+   filters or blurred orbs here — they were the most expensive paint in the app
+   on the low-end Android target, on the one screen every student sees first. */
 .onboarding-screen {
   min-height: 100vh;
-  background-color: #F7F8FC;
-  background-image:
-    radial-gradient(ellipse at top left, rgba(108,99,255,0.25) 0%, transparent 50%),
-    radial-gradient(ellipse at bottom right, rgba(72,209,204,0.15) 0%, transparent 50%);
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  position: relative;
+  flex-wrap: wrap;
+  align-items: stretch;
+  background: var(--bg);
+  font-family: var(--font-body);
 }
 
-.onboarding-screen::before,
-.onboarding-screen::after {
-  content: '';
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(80px);
-  opacity: 0.4;
-}
-
-.onboarding-screen::before {
-  width: 300px;
-  height: 300px;
+/* Left: brand panel */
+.onboarding-brand {
+  flex: 1 1 380px;
+  min-height: 280px;
+  box-sizing: border-box;
+  padding: 44px;
   background: var(--primary);
-  top: -100px;
-  left: -100px;
+  color: var(--on-panel);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 36px;
 }
 
-.onboarding-screen::after {
-  width: 250px;
-  height: 250px;
-  background: var(--teal);
-  bottom: -80px;
-  right: -80px;
-}
+.brand-row { display: flex; align-items: center; gap: 11px; }
 
-.onboarding-card {
-  background: rgba(255, 255, 255, 0.75);
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-radius: 20px;
-  padding: 40px 36px;
-  width: 100%;
-  max-width: 480px;
-  box-shadow: 0 8px 32px rgba(108,99,255,0.15);
-  text-align: center;
-  animation: slideUp 0.4s ease;
-  position: relative;
-  z-index: 1;
-}
-
-.onboarding-logo {
-  width: 56px; height: 56px;
-  background: var(--primary-light);
-  border-radius: 16px;
+.brand-mark {
+  width: 34px; height: 34px;
+  border-radius: 12px;
+  background: var(--gold);
+  color: var(--text-1);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 26px;
-  margin: 0 auto 16px;
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.brand-word {
+  font-family: var(--font-display);
+  font-size: 23px;
+  font-weight: 700;
+}
+
+.brand-pitch { max-width: 420px; }
+
+.brand-pitch h2 {
+  font-family: var(--font-display);
+  font-size: 40px;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  text-wrap: pretty;
+  margin: 0 0 16px;
+}
+
+.brand-pitch p {
+  font-size: 16px;
+  line-height: 1.55;
+  opacity: 0.85;
+  text-wrap: pretty;
+  margin: 0;
+}
+
+/* Live connection state — the whole point of the product, so it gets a line. */
+.brand-net {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.brand-net-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--gold);
+}
+
+.brand-net[data-online="false"] .brand-net-dot { background: var(--orange); }
+
+/* Right: form panel */
+.onboarding-panel {
+  flex: 1 1 420px;
+  box-sizing: border-box;
+  padding: 44px 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.onboarding-form {
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
 }
 
 .onboarding-title {
   font-family: var(--font-display);
-  font-size: 28px;
+  font-size: 30px;
   font-weight: 800;
+  line-height: 1.1;
   color: var(--text-1);
-  margin-bottom: 5px;
+  margin: 0 0 7px;
 }
 
 .onboarding-subtitle {
-  font-size: 14px;
+  font-size: 15px;
   color: var(--text-3);
-  margin-bottom: 32px;
+  margin: 0;
 }
 
-.form-group { margin-bottom: 22px; text-align: left; }
+.form-group { display: flex; flex-direction: column; gap: 7px; }
 
 .form-label {
-  display: block;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--text-2);
-  margin-bottom: 7px;
 }
 
 .form-input {
   width: 100%;
-  padding: 12px 16px;
+  box-sizing: border-box;
+  padding: 14px 16px;
   border: 1.5px solid var(--border);
-  border-radius: var(--radius-sm);
-  font-family: var(--font-body);
-  font-size: 14px;
+  border-radius: 14px;
+  font-family: inherit;
+  /* 16px is deliberate: anything smaller makes mobile Safari zoom on focus. */
+  font-size: 16px;
   color: var(--text-1);
   background: var(--surface);
   outline: none;
-  transition: border-color 0.15s, background 0.15s;
+  transition: border-color 0.15s;
 }
 
 .form-input::placeholder { color: var(--text-3); }
-.form-input:focus { border-color: var(--primary); background: var(--surface); }
+.form-input:focus { border-color: var(--primary); }
 
-.grade-group { margin-bottom: 30px; text-align: left; }
-
-.grade-buttons { display: flex; gap: 10px; }
+/* Grade picker, styled as a segmented control */
+.grade-buttons {
+  display: flex;
+  gap: 6px;
+  padding: 5px;
+  border-radius: 999px;
+  background: var(--track);
+}
 
 .grade-btn {
   flex: 1;
-  padding: 11px;
-  border: 1.5px solid var(--border);
-  border-radius: 20px;
+  padding: 10px 0;
+  border: none;
+  border-radius: 999px;
   background: transparent;
-  font-family: var(--font-body);
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text-2);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-3);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background 0.15s, color 0.15s;
 }
 
-.grade-btn:hover { border-color: var(--primary); color: var(--primary); }
-.grade-btn.selected { border-color: var(--primary); background: var(--primary); color: white; }
+.grade-btn:hover { color: var(--text-2); }
+
+.grade-btn.selected {
+  background: var(--surface);
+  color: var(--text-1);
+  box-shadow: var(--shadow);
+}
+
+.onboarding-submit {
+  padding: 15px;
+  border: none;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--on-panel);
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.onboarding-submit:hover:not(:disabled) { background: var(--primary-hover); }
+
+.onboarding-submit:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.onboarding-note {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-3);
+  text-align: center;
+  text-wrap: pretty;
+  margin: 0;
+}
+
+@media (max-width: 720px) {
+  .onboarding-brand {
+    min-height: auto;
+    padding: 28px 22px;
+    gap: 20px;
+  }
+  .brand-pitch h2 { font-size: 28px; margin-bottom: 12px; }
+  .brand-pitch p  { font-size: 15px; }
+  .onboarding-panel { padding: 32px 22px; }
+}
 
 /* ── Buttons ─────────────────────────────────────────────────────────────── */
 .btn-primary {
   width: 100%;
   padding: 13px;
-  background: linear-gradient(135deg, #6C63FF, #48D1CC);
-  color: white;
+  background: var(--primary);
+  color: var(--on-panel);
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-full);
   font-family: var(--font-body);
   font-size: 14px;
   font-weight: 600;
@@ -414,7 +519,7 @@ button { font-family: var(--font-body); }
 
 .btn-primary:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 20px rgba(108,99,255,0.4);
+  box-shadow: var(--shadow-button);
 }
 
 .btn-primary:active { transform: translateY(0); }
@@ -455,9 +560,7 @@ button { font-family: var(--font-body); }
 }
 
 .stat-card {
-  background: var(--surface-glass);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 20px;
   padding: 24px 28px;
@@ -483,12 +586,12 @@ button { font-family: var(--font-body); }
   font-size: 22px;
   flex-shrink: 0;
   background: var(--primary);
-  color: white;
+  color: var(--on-panel);
 }
 
 .stat-icon.gold   { background: var(--gold); }
 .stat-icon.orange { background: var(--orange); }
-.stat-icon.teal   { background: var(--teal); }
+.stat-icon.accent   { background: var(--accent); }
 
 .stat-label {
   font-size: 10.5px;
@@ -508,11 +611,9 @@ button { font-family: var(--font-body); }
 
 /* Level Progress */
 .level-card {
-  background: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
   border-radius: 16px;
   padding: 18px 22px;
   margin-bottom: 26px;
@@ -535,8 +636,8 @@ button { font-family: var(--font-body); }
 }
 
 .level-badge {
-  background: #FEF3C7;
-  color: #D97706;
+  background: var(--gold-light);
+  color: var(--gold-deep);
   font-size: 11px;
   font-weight: 700;
   padding: 3px 8px;
@@ -553,7 +654,7 @@ button { font-family: var(--font-body); }
   background: var(--border);
   border-radius: 100px;
   overflow: hidden;
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+  box-shadow: inset 0 2px 4px rgba(28,26,21,0.08);
 }
 
 .level-bar-fill {
@@ -579,9 +680,7 @@ button { font-family: var(--font-body); }
 }
 
 .continue-card {
-  background: var(--surface-glass);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 20px;
   padding: 28px;
@@ -596,7 +695,7 @@ button { font-family: var(--font-body); }
 }
 
 .continue-card[data-subject="ela"]:hover {
-  box-shadow: 0 12px 32px rgba(72,209,204,0.15);
+  box-shadow: var(--shadow-lg);
 }
 
 .continue-card-header {
@@ -617,7 +716,7 @@ button { font-family: var(--font-body); }
 }
 
 .continue-icon.math { background: var(--primary-light); }
-.continue-icon.ela  { background: var(--teal-light); }
+.continue-icon.ela  { background: var(--accent-light); }
 
 .continue-last-score { text-align: right; }
 
@@ -653,7 +752,7 @@ button { font-family: var(--font-body); }
   width: 100%;
   padding: 14px 20px;
   border: none;
-  border-radius: 14px;
+  border-radius: var(--radius-full);
   font-family: var(--font-body);
   font-size: 14px;
   font-weight: 600;
@@ -667,7 +766,7 @@ button { font-family: var(--font-body); }
 
 .btn-continue-math { 
   background: var(--primary);
-  color: white; 
+  color: var(--on-panel); 
 }
 .btn-continue-math:hover { 
   background: var(--primary-hover);
@@ -675,12 +774,12 @@ button { font-family: var(--font-body); }
 }
 
 .btn-continue-ela {
-  background: var(--gradient-teal);
-  color: white; 
+  background: var(--accent);
+  color: var(--on-panel); 
 }
 .btn-continue-ela:hover { 
   transform: scale(1.02);
-  box-shadow: 0 0 24px rgba(72,209,204,0.5);
+  box-shadow: var(--shadow-button);
 }
 
 /* ── Subject / Lesson List ───────────────────────────────────────────────── */
@@ -702,11 +801,9 @@ button { font-family: var(--font-body); }
 .lessons-list { display: flex; flex-direction: column; gap: 10px; }
 
 .lesson-list-card {
-  background: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
   border-radius: 16px;
   padding: 18px 22px;
   cursor: pointer;
@@ -734,11 +831,9 @@ button { font-family: var(--font-body); }
 }
 
 .lesson-panel {
-  background: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
   border-radius: 16px;
   overflow: hidden;
 }
@@ -752,7 +847,7 @@ button { font-family: var(--font-body); }
   padding: 22px 24px 0;
 }
 
-.lesson-meta.ela { color: var(--teal); }
+.lesson-meta.ela { color: var(--accent); }
 
 .lesson-title {
   font-family: var(--font-display);
@@ -766,7 +861,7 @@ button { font-family: var(--font-body); }
 .lesson-body { padding: 0 24px 12px; }
 
 .lesson-content-card {
-  background: rgba(108,99,255,0.05);
+  background: var(--primary-light);
   border-radius: var(--radius);
   padding: 20px;
   margin-bottom: 16px;
@@ -818,7 +913,7 @@ button { font-family: var(--font-body); }
   line-height: 1.5;
 }
 
-.lesson-step-check { color: var(--teal); flex-shrink: 0; font-size: 14px; }
+.lesson-step-check { color: var(--accent); flex-shrink: 0; font-size: 14px; }
 .lesson-step strong { color: var(--text-1); }
 
 .lesson-code {
@@ -831,9 +926,9 @@ button { font-family: var(--font-body); }
 }
 
 .lesson-quote {
-  border-left: 3px solid var(--teal);
+  border-left: 3px solid var(--accent);
   padding: 12px 16px;
-  background: var(--teal-light);
+  background: var(--accent-light);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   font-style: italic;
   color: var(--text-2);
@@ -860,9 +955,9 @@ button { font-family: var(--font-body); }
 .btn-take-quiz {
   padding: 11px 22px;
   background: var(--primary);
-  color: white;
+  color: var(--on-panel);
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-full);
   font-family: var(--font-body);
   font-size: 14px;
   font-weight: 600;
@@ -876,19 +971,17 @@ button { font-family: var(--font-body); }
 .btn-take-quiz:hover {
   background: var(--primary-hover);
   transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(108,99,255,0.28);
+  box-shadow: var(--shadow-button);
 }
 
-.btn-take-quiz.ela { background: var(--teal); }
-.btn-take-quiz.ela:hover { background: var(--teal-hover); box-shadow: 0 4px 16px rgba(72,209,204,0.28); }
+.btn-take-quiz.ela { background: var(--accent); }
+.btn-take-quiz.ela:hover { background: var(--accent-hover); box-shadow: var(--shadow-button); }
 
 /* Tutor Panel */
 .tutor-panel {
-  background: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
   border-radius: 16px;
   display: flex;
   flex-direction: column;
@@ -940,8 +1033,8 @@ button { font-family: var(--font-body); }
 .tutor-status.offline::before { background: var(--red); }
 
 .tutor-tokens {
-  background: #FEF3C7;
-  color: #D97706;
+  background: var(--gold-light);
+  color: var(--gold-deep);
   font-size: 12px;
   font-weight: 700;
   padding: 4px 10px;
@@ -959,7 +1052,7 @@ button { font-family: var(--font-body); }
 }
 
 .tutor-message {
-  background: rgba(108,99,255,0.08);
+  background: var(--primary-light);
   border-radius: 12px 12px 12px 2px;
   padding: 10px 14px;
   font-size: 13px;
@@ -971,7 +1064,7 @@ button { font-family: var(--font-body); }
 
 .student-message {
   background: var(--primary);
-  color: white;
+  color: var(--on-panel);
   border-radius: 12px 12px 2px 12px;
   padding: 10px 14px;
   font-size: 13px;
@@ -1009,6 +1102,7 @@ button { font-family: var(--font-body); }
 .tutor-send {
   width: 34px; height: 34px;
   background: var(--primary);
+  color: var(--on-panel);
   border: none;
   border-radius: 50%;
   cursor: pointer;
@@ -1026,7 +1120,7 @@ button { font-family: var(--font-body); }
   gap: 4px;
   align-items: center;
   padding: 10px 14px;
-  background: rgba(108,99,255,0.08);
+  background: var(--primary-light);
   border-radius: 12px 12px 12px 2px;
   width: fit-content;
 }
@@ -1071,17 +1165,15 @@ button { font-family: var(--font-body); }
 
 .quiz-bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--primary), #A78BFA);
+  background: linear-gradient(90deg, var(--primary), var(--primary-hover));
   border-radius: 100px;
   transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .quiz-card {
-  background: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
   border-radius: 16px;
   padding: 32px;
   margin-bottom: 18px;
@@ -1105,9 +1197,9 @@ button { font-family: var(--font-body); }
 
 .choice-btn {
   padding: 17px 18px;
-  border: 1.5px solid rgba(0, 0, 0, 0.08);
+  border: 1.5px solid var(--border);
   border-radius: var(--radius);
-  background: rgba(255, 255, 255, 0.7);
+  background: var(--surface);
   font-family: var(--font-body);
   font-size: 14.5px;
   font-weight: 500;
@@ -1163,8 +1255,8 @@ button { font-family: var(--font-body); }
 .choice-btn:disabled { cursor: default; }
 
 .hint-popup {
-  background: #FFFBEB;
-  border: 1px solid #F59E0B;
+  background: var(--gold-light);
+  border: 1px solid var(--gold-deep);
   border-radius: var(--radius-sm);
   padding: 11px 15px;
   font-size: 13px;
@@ -1186,7 +1278,7 @@ button { font-family: var(--font-body); }
   gap: 6px;
   padding: 10px 15px;
   border: 1.5px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-full);
   background: var(--surface);
   font-family: var(--font-body);
   font-size: 13px;
@@ -1203,9 +1295,9 @@ button { font-family: var(--font-body); }
   gap: 6px;
   padding: 11px 22px;
   background: var(--primary);
-  color: white;
+  color: var(--on-panel);
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-full);
   font-family: var(--font-body);
   font-size: 14px;
   font-weight: 600;
@@ -1233,11 +1325,9 @@ button { font-family: var(--font-body); }
 }
 
 .summary-card {
-  background: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
   border-radius: 16px;
   padding: 40px 34px;
   max-width: 420px;
@@ -1249,24 +1339,24 @@ button { font-family: var(--font-body); }
 .summary-score-circle {
   width: 96px; height: 96px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--primary), #A78BFA);
+  background: linear-gradient(135deg, var(--primary), var(--primary-hover));
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   margin: 0 auto 16px;
-  box-shadow: 0 8px 24px rgba(108,99,255,0.28);
+  box-shadow: var(--shadow-button);
 }
 
 .summary-score-number {
   font-family: var(--font-display);
   font-size: 28px;
   font-weight: 800;
-  color: white;
+  color: var(--on-panel);
   line-height: 1;
 }
 
-.summary-score-pct { font-size: 12px; color: rgba(255,255,255,0.75); }
+.summary-score-pct { font-size: 12px; color: var(--on-panel); }
 
 .summary-grade {
   font-family: var(--font-display);
@@ -1281,7 +1371,7 @@ button { font-family: var(--font-body); }
   grid-template-columns: repeat(3, 1fr);
   gap: 10px;
   margin-bottom: 22px;
-  background: rgba(108,99,255,0.05);
+  background: var(--primary-light);
   border-radius: var(--radius);
   padding: 14px;
 }
@@ -1320,9 +1410,9 @@ button { font-family: var(--font-body); }
   width: 100%;
   padding: 13px;
   background: var(--primary);
-  color: white;
+  color: var(--on-panel);
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-full);
   font-family: var(--font-body);
   font-size: 14px;
   font-weight: 600;
@@ -1337,7 +1427,7 @@ button { font-family: var(--font-body); }
 .btn-back-dashboard:hover {
   background: var(--primary-hover);
   transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(108,99,255,0.28);
+  box-shadow: var(--shadow-button);
 }
 
 /* ── Placeholder Screens ─────────────────────────────────────────────────── */
@@ -1368,7 +1458,7 @@ button { font-family: var(--font-body); }
   transition: all 0.15s;
 }
 
-.reset-btn:hover { background: var(--red); color: white; }
+.reset-btn:hover { background: var(--red); color: var(--on-panel); }
 
 /* ── Toast ───────────────────────────────────────────────────────────────── */
 .toast {
@@ -1376,7 +1466,7 @@ button { font-family: var(--font-body); }
   bottom: 24px;
   right: 24px;
   background: var(--text-1);
-  color: white;
+  color: var(--on-panel);
   padding: 11px 18px;
   border-radius: var(--radius-sm);
   font-size: 13px;
@@ -1540,9 +1630,7 @@ button { font-family: var(--font-body); }
 
 .lesson-card {
   padding: 24px;
-  background: var(--surface-glass);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 16px;
   box-shadow: var(--shadow);
@@ -1578,9 +1666,9 @@ button { font-family: var(--font-body); }
   width: 100%;
   padding: 12px 20px;
   border: none;
-  border-radius: 14px;
+  border-radius: var(--radius-full);
   background: var(--primary);
-  color: white;
+  color: var(--on-panel);
   font-weight: 600;
   font-size: 14px;
   cursor: pointer;
@@ -1593,11 +1681,11 @@ button { font-family: var(--font-body); }
 }
 
 .btn-start-lesson.ela {
-  background: var(--teal);
+  background: var(--accent);
 }
 
 .btn-start-lesson.ela:hover {
-  box-shadow: 0 0 20px rgba(72,209,204,0.5);
+  box-shadow: var(--shadow-button);
 }
 
 .empty-state {
@@ -1609,7 +1697,7 @@ button { font-family: var(--font-body); }
 .boss-section {
   margin-top: 32px;
   padding: 28px;
-  background: linear-gradient(135deg, rgba(108,99,255,0.08), rgba(72,209,204,0.08));
+  background: var(--primary-light);
   border-radius: 20px;
   border: 1px solid var(--primary-light);
   text-align: center;
@@ -1630,15 +1718,15 @@ button { font-family: var(--font-body); }
   padding: 16px 32px;
   border: none;
   border-radius: var(--radius-full);
-  background: linear-gradient(135deg, var(--primary), #8b5cf6);
-  color: white;
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  color: var(--on-panel);
   font-weight: 600;
   cursor: pointer;
 }
 
 .btn-boss:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(108,99,255,0.3);
+  box-shadow: var(--shadow-button);
 }
 
 /* ── Progress Page ─────────────────────────────────────────────────────────────── */
@@ -1688,15 +1776,15 @@ button { font-family: var(--font-body); }
 }
 
 .progress-stats-grid .stat-icon.gold {
-  background: #FFF9E6;
+  background: var(--gold-light);
 }
 
 .progress-stats-grid .stat-icon.orange {
-  background: #FFF0E6;
+  background: var(--orange-light);
 }
 
-.progress-stats-grid .stat-icon.teal {
-  background: var(--teal-light);
+.progress-stats-grid .stat-icon.accent {
+  background: var(--accent-light);
 }
 
 .progress-stats-grid .stat-value {
@@ -1722,12 +1810,11 @@ button { font-family: var(--font-body); }
 }
 
 .mastery-card {
-  background: var(--surface-glass);
-  backdrop-filter: blur(12px);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 20px;
   padding: 28px 32px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  box-shadow: var(--shadow);
 }
 
 .mastery-bar-container {
@@ -1744,14 +1831,14 @@ button { font-family: var(--font-body); }
 }
 
 .mastery-bar {
-  background: rgba(108,99,255,0.1);
+  background: var(--primary-light);
   border-radius: var(--radius-full);
   height: 12px;
   overflow: hidden;
 }
 
 .mastery-fill {
-  background: var(--gradient-purple);
+  background: var(--primary);
   border-radius: var(--radius-full);
   height: 100%;
   transition: width 0.5s ease;
@@ -1785,12 +1872,11 @@ button { font-family: var(--font-body); }
 }
 
 .subject-progress-card {
-  background: var(--surface-glass);
-  backdrop-filter: blur(12px);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 20px;
   padding: 28px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  box-shadow: var(--shadow);
 }
 
 .subject-progress-card.math {
@@ -1798,7 +1884,7 @@ button { font-family: var(--font-body); }
 }
 
 .subject-progress-card.ela {
-  border-left: 4px solid var(--teal);
+  border-left: 4px solid var(--accent);
 }
 
 .subject-card-header {
@@ -1823,7 +1909,7 @@ button { font-family: var(--font-body); }
 }
 
 .subject-progress-card .subject-icon.ela {
-  background: var(--teal-light);
+  background: var(--accent-light);
 }
 
 .subject-name {
@@ -1850,7 +1936,7 @@ button { font-family: var(--font-body); }
 }
 
 .subject-progress-bar {
-  background: rgba(108,99,255,0.1);
+  background: var(--primary-light);
   border-radius: var(--radius-full);
   height: 10px;
   overflow: hidden;
@@ -1858,29 +1944,29 @@ button { font-family: var(--font-body); }
 }
 
 .subject-progress-card.math .subject-progress-bar {
-  background: rgba(108,99,255,0.1);
+  background: var(--primary-light);
 }
 
 .subject-progress-card.ela .subject-progress-bar {
-  background: rgba(72,209,204,0.15);
+  background: var(--accent-light);
 }
 
 .subject-fill {
-  background: var(--gradient-purple);
+  background: var(--primary);
   border-radius: var(--radius-full);
   height: 100%;
   transition: width 0.5s ease;
 }
 
 .subject-progress-card.ela .subject-fill {
-  background: linear-gradient(135deg, var(--teal), #3AB8B3);
+  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
 }
 
 .btn-continue {
   width: 100%;
   padding: 14px 24px;
   border: none;
-  border-radius: 14px;
+  border-radius: var(--radius-full);
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
@@ -1889,24 +1975,24 @@ button { font-family: var(--font-body); }
 
 .btn-continue.btn-math {
   background: var(--primary);
-  color: white;
+  color: var(--on-panel);
 }
 
 .btn-continue.btn-math:hover {
   background: var(--primary-hover);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(108,99,255,0.3);
+  box-shadow: var(--shadow-button);
 }
 
 .btn-continue.btn-ela {
-  background: var(--teal);
-  color: white;
+  background: var(--accent);
+  color: var(--on-panel);
 }
 
 .btn-continue.btn-ela:hover {
-  background: var(--teal-hover);
+  background: var(--accent-hover);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(72,209,204,0.3);
+  box-shadow: var(--shadow-button);
 }
 
 .achievements-grid {
@@ -1916,13 +2002,12 @@ button { font-family: var(--font-body); }
 }
 
 .achievement-card {
-  background: var(--surface-glass);
-  backdrop-filter: blur(12px);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 16px;
   padding: 20px;
   text-align: center;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  box-shadow: var(--shadow);
 }
 
 .achievement-card.locked {
@@ -1956,12 +2041,11 @@ button { font-family: var(--font-body); }
 }
 
 .activity-list {
-  background: var(--surface-glass);
-  backdrop-filter: blur(12px);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 20px;
   padding: 24px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  box-shadow: var(--shadow);
 }
 
 .activity-item {

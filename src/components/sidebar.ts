@@ -30,7 +30,7 @@ export function renderSidebar(options: SidebarOptions): HTMLElement {
 
   sidebar.innerHTML = `
     <div class="sidebar-logo">
-      <div class="sidebar-logo-icon">🧠</div>
+      <div class="sidebar-logo-icon">M</div>
       <div class="sidebar-logo-text">MentorAI</div>
     </div>
     

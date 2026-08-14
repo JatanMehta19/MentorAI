@@ -222,6 +222,15 @@ export async function getProfile(nickname: string): Promise<StudentProfile | und
 }
 
 /**
+ * Load the profile belonging to this device, if the student has onboarded before.
+ * One profile per device — there are no accounts, so there is nothing to pick between.
+ * Returns undefined on a genuinely first launch.
+ */
+export async function getCurrentProfile(): Promise<StudentProfile | undefined> {
+  return db.studentProfile.toCollection().first();
+}
+
+/**
  * Create a brand new student profile on first launch.
  * Called after the student picks their nickname and grade.
  */

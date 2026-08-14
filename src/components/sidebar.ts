@@ -36,7 +36,7 @@ export function renderSidebar(options: SidebarOptions): HTMLElement {
     
     <nav class="sidebar-nav">
       ${navItems.map(item => `
-        <button class="nav-item ${options.currentPage === item.id ? 'active' : ''}" data-page="${item.id}" data-route="${item.id}">
+        <button class="nav-item ${options.currentPage === item.id ? 'active' : ''}" data-nav="${item.id}">
           <span class="nav-icon">${item.icon}</span>
           <span>${item.label}</span>
         </button>
@@ -55,11 +55,13 @@ export function renderSidebar(options: SidebarOptions): HTMLElement {
     </div>
   `;
 
+  // data-nav, not data-page/data-route: the global delegator in main.ts intercepts
+  // those two, so nav clicks used to fire navigateTo twice — once here and once there.
   const navButtons = sidebar.querySelectorAll('.nav-item');
   navButtons.forEach((btn) => {
     btn.addEventListener('click', (e) => {
       const target = e.currentTarget as HTMLButtonElement;
-      const page = target.dataset.page;
+      const page = target.dataset.nav;
       if (page) {
         options.onNavigate(page);
       }

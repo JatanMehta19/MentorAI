@@ -1,6 +1,6 @@
 // src/main.ts
 import './style.css';
-import { seedLessons, getLessonsForGrade, createProfile, getProgressForStudent, saveProgress, markQuestionAnswered } from './db';
+import { seedLessons, getLessonsForGrade, createProfile, getCurrentProfile, getProgressForStudent, saveProgress, markQuestionAnswered, updateProfile, calculateStreak, getPendingSyncItems } from './db';
 import { initOfflineSync } from '../utils/offline';
 import { preloadLessons } from './preload';
 import { renderOnboarding, type OnboardingData } from './screens/onboarding';
@@ -28,6 +28,7 @@ let app: HTMLElement;
 let profile: StudentProfile | null = null;
 let lessons: Lesson[] = [];
 let recentProgress: Progress[] = [];
+let pendingSyncCount = 0;
 
 // ── Chat State ────────────────────────────────────────────────────────────────  ← NEW
 let tutorMessages: TutorMessage[] = [];
@@ -66,6 +67,21 @@ function updateChatUI(): void {  // ← NEW: updates only the chat div, never re
 
 // ── Navigation ───────────────────────────────────────────────────────────────
 
+/**
+ * Reload everything the home and progress screens read.
+ *
+ * Both tables matter: scores live on Progress rows, but the per-question "answered"
+ * flags that decide whether a lesson is in progress live on the lesson records.
+ * Always resolve this BEFORE calling render() — render() must not await between
+ * clearing #app and appending, or two overlapping calls each append a layout.
+ */
+async function refreshStudentData(): Promise<void> {
+  if (!profile) return;
+  lessons          = await getLessonsForGrade(profile.grade, 'en');
+  recentProgress   = await getProgressForStudent(profile.nickname);
+  pendingSyncCount = (await getPendingSyncItems()).length;
+}
+
 async function navigateTo(page: string): Promise<void> {
   if (page === 'math' || page === 'ela') {
     currentSubject = page as Subject;
@@ -74,6 +90,9 @@ async function navigateTo(page: string): Promise<void> {
     }
     currentPage = page as Page;
   } else if (page === 'dashboard' || page === 'progress' || page === 'settings') {
+    if (page === 'dashboard' || page === 'progress') {
+      await refreshStudentData();
+    }
     currentPage = page as Page;
   }
   render();
@@ -360,8 +379,14 @@ async function render(): Promise<void> {
     mainContent = renderDashboard({
       profile,
       lessons,
+      progress: recentProgress,
       isOnline,
-      onOpenLesson: (subject) => { void navigateTo(subject); }
+      pendingSyncCount,
+      onSelectLesson: (lessonId) => {
+        currentLessonId = lessonId;
+        currentPage = 'quiz';
+        render();
+      },
     });
   }
 
@@ -436,16 +461,28 @@ async function handleOnboardingStart(data: OnboardingData): Promise<void> {
     mathXP:       0,
     elaXP:        0,
     currentLevel: 1,
-    streak:       0,
+    streak:       1,   // creating a profile counts as being active today
     lastActive:   new Date().toISOString(),
   };
 
   const id = await createProfile(newProfile);
   profile = { ...newProfile, id };
-  lessons = await getLessonsForGrade(profile.grade, 'en');
-  recentProgress = await getProgressForStudent(profile.nickname);
+  await refreshStudentData();
   currentPage = 'dashboard';
   render();
+}
+
+/**
+ * Roll the daily streak forward and stamp today as the last active day.
+ * calculateStreak() already handles all three cases: same day leaves it alone,
+ * the next day increments, any longer gap resets to 1.
+ */
+async function tickStreak(): Promise<void> {
+  if (!profile) return;
+  const streak = calculateStreak(profile.lastActive, profile.streak);
+  const lastActive = new Date().toISOString();
+  await updateProfile(profile.nickname, { streak, lastActive });
+  profile = { ...profile, streak, lastActive };
 }
 
 function setupSubjectPageHandlers(): void {
@@ -501,6 +538,16 @@ async function init(): Promise<void> {
   await seedLessons();
   initOfflineSync();
   preloadLessons().catch(console.error);
+
+  // A returning student skips onboarding. Without this every reload created a
+  // duplicate profile row and reset the streak.
+  profile = (await getCurrentProfile()) ?? null;
+  if (profile) {
+    await tickStreak();
+    await refreshStudentData();
+    currentPage = 'dashboard';
+  }
+
   window.addEventListener('online',  () => render());
   window.addEventListener('offline', () => render());
   console.log('[MentorAI] Boot complete');

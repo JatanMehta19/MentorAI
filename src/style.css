@@ -782,6 +782,265 @@ button { font-family: var(--font-body); }
   box-shadow: var(--shadow-button);
 }
 
+/* ── Home ────────────────────────────────────────────────────────────────────
+   The dashboard's own blocks. The .stat-card / .mastery-card / .subject-progress-card
+   rules above are shared with the progress and subject pages — don't fold these into
+   them. */
+.home {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+
+/* Resume hero */
+.home-hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 26px 26px 24px;
+  border-radius: 26px;
+  background: var(--panel);
+  color: var(--on-panel);
+}
+
+.hero-main {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 260px;
+  flex: 1;
+}
+
+.hero-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  opacity: 0.75;
+}
+
+.hero-title {
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  text-wrap: pretty;
+  margin: 0;
+}
+
+.hero-sub { font-size: 15px; opacity: 0.85; margin: 0; }
+
+.hero-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 420px;
+}
+
+.hero-bar {
+  flex: 1;
+  height: 7px;
+  border-radius: 4px;
+  background: rgba(244,241,234,0.22);
+}
+
+.hero-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: var(--gold);
+}
+
+.hero-count { font-family: var(--font-mono); font-size: 12px; }
+
+.hero-side { display: flex; align-items: center; gap: 16px; }
+
+.hero-streak { display: flex; flex-direction: column; gap: 2px; text-align: right; }
+
+.hero-streak-value {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.hero-streak-label { font-size: 12px; opacity: 0.8; }
+
+.hero-cta {
+  padding: 13px 24px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--gold);
+  color: var(--text-1);
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.hero-cta:hover { background: #FFE89A; }
+
+/* Sync notice — only rendered when it reflects the real queue state */
+.sync-banner {
+  padding: 13px 18px;
+  border-radius: 16px;
+  background: var(--gold-light);
+  border: 1.5px solid #EDDFBA;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text-2);
+}
+
+/* Section head + filters */
+.home-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.home-section-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text-1);
+  margin: 0;
+}
+
+.home-filters { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.filter-pill {
+  padding: 8px 15px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.filter-pill:hover { border-color: var(--primary); }
+
+.filter-pill.selected {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--on-panel);
+}
+
+/* Lesson rail */
+.lesson-rail {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
+}
+
+.rail-row {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 17px;
+  border: 1.5px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface);
+  font-family: inherit;
+  font-size: 15px;
+  color: var(--text-1);
+  text-align: left;
+  width: 100%;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.rail-row:hover { border-color: var(--primary); }
+.rail-row[data-state="done"] { opacity: 0.7; }
+
+.rail-num {
+  width: 46px; height: 46px;
+  flex: none;
+  border-radius: 15px;
+  background: var(--track);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+.rail-row[data-state="done"] .rail-num          { background: var(--primary-light); }
+.rail-row[data-state="in-progress"] .rail-num   { background: var(--gold-light); }
+
+.rail-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.rail-title { font-size: 16px; font-weight: 500; color: var(--text-1); }
+.rail-meta      { font-size: 13px; color: var(--text-3); }
+
+.rail-state {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.rail-row[data-state="in-progress"] .rail-state { color: var(--accent-hover); }
+
+.rail-empty {
+  grid-column: 1 / -1;
+  padding: 22px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--text-3);
+}
+
+/* Stat cards */
+.home-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  margin-top: 6px;
+}
+
+.home-stat {
+  padding: 18px 20px;
+  border-radius: 20px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.home-stat-value {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-1);
+  line-height: 1;
+}
+
+.home-stat-label { font-size: 13px; color: var(--text-3); }
+
+@media (max-width: 720px) {
+  .home-hero { padding: 22px 20px; border-radius: 22px; }
+  .hero-title { font-size: 26px; }
+  .hero-main { min-width: 0; }
+  .hero-side { width: 100%; justify-content: space-between; }
+  .lesson-rail { grid-template-columns: 1fr; }
+}
+
 /* ── Subject / Lesson List ───────────────────────────────────────────────── */
 .subject-header { margin-bottom: 26px; }
 

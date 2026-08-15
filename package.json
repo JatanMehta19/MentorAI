@@ -6,13 +6,18 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "devDependencies": {
     "@types/canvas-confetti": "^1.9.0",
+    "fake-indexeddb": "^6.0.0",
+    "jsdom": "^24.1.0",
     "typescript": "^5.2.2",
     "vite": "^5.3.4",
-    "vite-plugin-pwa": "^1.2.0"
+    "vite-plugin-pwa": "^1.2.0",
+    "vitest": "^1.6.0"
   },
   "dependencies": {
     "canvas-confetti": "^1.9.4",

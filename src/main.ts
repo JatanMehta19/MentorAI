@@ -1,7 +1,7 @@
 // src/main.ts
 import './style.css';
 import { seedLessons, getLessonsForGrade, createProfile, getCurrentProfile, getProgressForStudent, saveProgress, markQuestionAnswered, updateProfile, calculateStreak, getPendingSyncItems } from './db';
-import { initOfflineSync } from '../utils/offline';
+import { initOfflineSync, registerSyncCallbacks, getConnectionStatus, isOnline as isNetworkOnline } from '../utils/offline';
 import { preloadLessons } from './preload';
 import { renderOnboarding, type OnboardingData } from './screens/onboarding';
 import { renderDashboard } from './screens/dashboard';
@@ -517,6 +517,50 @@ function setupProgressPageHandlers(): void {
 }
 
 
+// ── Sync Badge ────────────────────────────────────────────────────────────────
+
+/**
+ * The one always-visible signal that the sync engine is alive: a dot that is
+ * green online, red offline, and pulses gold while the queue drains.
+ *
+ * Mounted on <body> rather than #app because every navigation replaces the app
+ * root's innerHTML wholesale, which would destroy the badge mid-drain.
+ */
+function mountSyncBadge(): void {
+  const badge = document.createElement('div');
+  badge.className = 'sync-badge';
+  badge.innerHTML = '<span class="sync-dot"></span>';
+  document.body.appendChild(badge);
+
+  const paint = (status: 'online' | 'offline' | 'syncing'): void => {
+    badge.dataset.status = status;
+  };
+
+  // Safe here: nothing is draining yet at mount time.
+  paint(getConnectionStatus());
+
+  // The drain's finally-block clears its in-progress flag *after* these fire, so
+  // getConnectionStatus() would still answer 'syncing' and strand the dot gold.
+  // Read the connection directly instead.
+  const settle = (): void => paint(isNetworkOnline() ? 'online' : 'offline');
+
+  registerSyncCallbacks({
+    onStatusChange: (online) => paint(online ? 'online' : 'offline'),
+    onSyncStart:    () => paint('syncing'),
+    onSyncError:    settle,
+    onSyncComplete: (count) => {
+      settle();
+      // The dashboard's "N items waiting to sync" banner reads a count captured
+      // at render time. Refresh it only while it is actually on screen —
+      // re-rendering mid-quiz would throw away the student's place.
+      if (count > 0 && currentPage === 'dashboard') {
+        void refreshStudentData().then(() => render());
+      }
+    },
+  });
+}
+
+
 // ── Event Delegation ──────────────────────────────────────────────────────────
 
 document.addEventListener('click', (e) => {
@@ -536,6 +580,7 @@ document.addEventListener('click', (e) => {
 async function init(): Promise<void> {
   app = document.getElementById('app')!;
   await seedLessons();
+  mountSyncBadge();   // must precede initOfflineSync — that call can drain immediately
   initOfflineSync();
   preloadLessons().catch(console.error);
 

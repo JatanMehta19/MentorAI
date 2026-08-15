@@ -25,7 +25,7 @@ otherwise:
   request.
 - **TypeScript in strict mode**, because types compile away and cost nothing at runtime.
 
-The production bundle is 45.9 kB gzipped of JavaScript and 5.9 kB gzipped of CSS, plus ten
+The production bundle is 47.7 kB gzipped of JavaScript and 6.5 kB gzipped of CSS, plus ten
 lazily-loaded lesson chunks of roughly 0.6 kB each.
 
 ## Stack
@@ -53,6 +53,12 @@ To build and preview the production output:
 ```bash
 npm run build
 npm run preview
+```
+
+To run the test suite:
+
+```bash
+npm test
 ```
 
 ### Gemini API key
@@ -128,6 +134,17 @@ for the next trigger.
 **`withOfflineSupport`** wraps a call so it runs immediately when online and enqueues a
 fallback when not, which keeps the branching out of the calling code.
 
+**Visible state.** A dot in the top-right corner is green online, red offline, and pulses gold
+while the queue drains. It is mounted on `<body>` rather than the app root, because navigation
+replaces the root's `innerHTML` wholesale and would otherwise destroy it mid-drain.
+
+**Tests.** [`utils/offline.test.ts`](utils/offline.test.ts) covers the queue's control flow —
+work held offline and flushed on reconnect, a flapping connection debounced into one drain,
+overlapping drains processing each item once, retry counting, the `MAX_RETRIES` give-up, a
+connection lost mid-drain leaving the rest queued, and a throwing UI listener not stranding the
+queue. The Gemini layer is mocked; Dexie runs for real against `fake-indexeddb`, so retry
+counters are asserted against actual IndexedDB rows.
+
 ## Current limitations
 
 This section is deliberately specific. Nothing below is fixed yet.
@@ -155,7 +172,8 @@ This section is deliberately specific. Nothing below is fixed yet.
   the student nickname reaches the DOM unescaped.
 - **No URL routing.** Navigation is held in module-level state, so a page refresh returns to
   the onboarding screen and no view is linkable.
-- **No tests.** The sync engine needs them most.
+- **Test coverage stops at the sync engine.** `utils/offline.ts` is covered; the screens, the
+  Gemini parsing layer, and `db.ts` are not.
 
 ## Project history
 

@@ -28,25 +28,57 @@ let syncDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 // ── UI Callbacks ──────────────────────────────────────────────────────────────
 
-export let onSyncStart:    () => void                = () => {};
-export let onSyncComplete: (count: number) => void   = () => {};
-export let onSyncError:    (msg: string) => void     = () => {};
-export let onStatusChange: (online: boolean) => void = () => {};
+export interface SyncCallbacks {
+  onSyncStart:    () => void;
+  onSyncComplete: (count: number) => void;
+  onSyncError:    (msg: string) => void;
+  onStatusChange: (online: boolean) => void;
+}
+
+const noop = (): void => {};
+
+// Held in one object rather than four `export let` bindings. Live-binding
+// exports could be read but never reliably reset, which made the module
+// impossible to test twice in the same process.
+const callbacks: SyncCallbacks = {
+  onSyncStart:    noop,
+  onSyncComplete: noop,
+  onSyncError:    noop,
+  onStatusChange: noop,
+};
 
 /**
  * Call this once in main.ts to connect the sync engine to your UI.
  * Each callback is optional — only pass the ones you need.
  */
-export function registerSyncCallbacks(callbacks: {
-  onSyncStart?:    () => void;
-  onSyncComplete?: (count: number) => void;
-  onSyncError?:    (msg: string) => void;
-  onStatusChange?: (online: boolean) => void;
-}): void {
-  if (callbacks.onSyncStart)    onSyncStart    = callbacks.onSyncStart;
-  if (callbacks.onSyncComplete) onSyncComplete = callbacks.onSyncComplete;
-  if (callbacks.onSyncError)    onSyncError    = callbacks.onSyncError;
-  if (callbacks.onStatusChange) onStatusChange = callbacks.onStatusChange;
+export function registerSyncCallbacks(partial: Partial<SyncCallbacks>): void {
+  Object.assign(callbacks, partial);
+}
+
+/** Restore the no-op defaults. Used by tests so cases can't leak into each other. */
+export function resetSyncCallbacks(): void {
+  callbacks.onSyncStart    = noop;
+  callbacks.onSyncComplete = noop;
+  callbacks.onSyncError    = noop;
+  callbacks.onStatusChange = noop;
+}
+
+/**
+ * Invoke a UI callback without letting it break the drain.
+ * A listener that throws is a UI bug; it must not strand queued items or leave
+ * syncInProgress stuck, which is exactly what an unguarded call would do.
+ */
+function emit<K extends keyof SyncCallbacks>(
+  name: K,
+  ...args: Parameters<SyncCallbacks[K]>
+): void {
+  try {
+    // TS can't prove callbacks[name] accepts args when K is still generic,
+    // so the correlation is asserted here rather than at every call site.
+    (callbacks[name] as (...a: Parameters<SyncCallbacks[K]>) => void)(...args);
+  } catch (err) {
+    console.error(`[Sync] Listener "${name}" threw:`, err);
+  }
 }
 
 // ── Connection Helpers ────────────────────────────────────────────────────────
@@ -68,13 +100,13 @@ export function getConnectionStatus(): 'online' | 'offline' | 'syncing' {
  */
 export function initOfflineSync(): void {
   window.addEventListener('online', () => {
-    onStatusChange(true);
+    emit('onStatusChange', true);
     if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
     syncDebounceTimer = setTimeout(() => flushSyncQueue(), SYNC_DEBOUNCE);
   });
 
   window.addEventListener('offline', () => {
-    onStatusChange(false);
+    emit('onStatusChange', false);
     if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
   });
 
@@ -99,7 +131,7 @@ export async function flushSyncQueue(): Promise<void> {
     const queue = await getPendingSyncItems();
     if (queue.length === 0) { syncInProgress = false; return; }
 
-    onSyncStart();
+    emit('onSyncStart');
     console.log(`[Sync] Processing ${queue.length} queued items...`);
 
     for (const item of queue) {
@@ -133,12 +165,12 @@ export async function flushSyncQueue(): Promise<void> {
       }
     }
 
-    onSyncComplete(processedCount);
+    emit('onSyncComplete', processedCount);
     console.log(`[Sync] Done — ${processedCount} items synced.`);
 
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown sync error';
-    onSyncError(message);
+    emit('onSyncError', message);
     console.error('[Sync] Fatal error:', err);
   } finally {
     syncInProgress = false;

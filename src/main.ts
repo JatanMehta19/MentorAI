@@ -2,10 +2,10 @@
 import './style.css';
 import { seedLessons, getLessonsForGrade, createProfile, getCurrentProfile, getProgressForStudent, saveProgress, markQuestionAnswered, updateProfile, calculateStreak, getPendingSyncItems } from './db';
 import { initOfflineSync, registerSyncCallbacks, getConnectionStatus, isOnline as isNetworkOnline } from '../utils/offline';
-import { preloadLessons } from './preload';
+import { generateNextLesson, remainingTopics } from './generate';
 import { renderOnboarding, type OnboardingData } from './screens/onboarding';
 import { renderDashboard } from './screens/dashboard';
-import { renderSubjectPage, renderSettingsPlaceholder } from './screens/subject';
+import { renderSubjectPage, renderSettingsPlaceholder, type GenerateState } from './screens/subject';
 import { renderProgressPage } from './screens/progress';
 import { renderSidebar } from './components/sidebar';
 import type { StudentProfile, Lesson, Grade, Language, Subject, Progress } from './types';
@@ -29,6 +29,7 @@ let profile: StudentProfile | null = null;
 let lessons: Lesson[] = [];
 let recentProgress: Progress[] = [];
 let pendingSyncCount = 0;
+let generateState: GenerateState = 'idle';
 
 // ── Chat State ────────────────────────────────────────────────────────────────  ← NEW
 let tutorMessages: TutorMessage[] = [];
@@ -87,6 +88,9 @@ async function navigateTo(page: string): Promise<void> {
     currentSubject = page as Subject;
     if (profile) {
       lessons = await getLessonsForGrade(profile.grade, 'en');
+      // Resolve exhaustion on arrival so the card never offers a topic that
+      // isn't there — the previous visit may have used the last one.
+      generateState = (await remainingTopics(currentSubject, profile.grade)) > 0 ? 'idle' : 'exhausted';
     }
     currentPage = page as Page;
   } else if (page === 'dashboard' || page === 'progress' || page === 'settings') {
@@ -95,6 +99,39 @@ async function navigateTo(page: string): Promise<void> {
     }
     currentPage = page as Page;
   }
+  render();
+}
+
+
+/**
+ * Ask for one more lesson on the subject currently being viewed.
+ *
+ * The online/offline branch lives in generateNextLesson, which routes through
+ * withOfflineSupport — so pressing this with no connection enqueues a durable
+ * sync-queue row rather than failing. All this decides is what to show.
+ */
+async function handleGenerateLesson(): Promise<void> {
+  if (!profile || generateState === 'working') return;
+
+  generateState = 'working';
+  render();
+
+  try {
+    const outcome = await generateNextLesson(currentSubject, profile.grade);
+
+    if (outcome === 'created') {
+      await refreshStudentData();
+      generateState = (await remainingTopics(currentSubject, profile.grade)) > 0 ? 'idle' : 'exhausted';
+    } else {
+      generateState = outcome;
+    }
+  } catch (err) {
+    // generateNextLesson already falls back to the queue on a failed call, so
+    // reaching here means something unexpected — don't strand the button.
+    console.error('[Generate] Unexpected failure:', err);
+    generateState = 'idle';
+  }
+
   render();
 }
 
@@ -139,6 +176,8 @@ async function render(): Promise<void> {
         currentBoss = null;
         render();
       },
+      generateState,
+      onGenerateLesson: () => void handleGenerateLesson(),
       onGoBack: () => navigateTo('dashboard'),
     });
     setupSubjectPageHandlers();
@@ -582,7 +621,6 @@ async function init(): Promise<void> {
   await seedLessons();
   mountSyncBadge();   // must precede initOfflineSync — that call can drain immediately
   initOfflineSync();
-  preloadLessons().catch(console.error);
 
   // A returning student skips onboarding. Without this every reload created a
   // duplicate profile row and reset the streak.

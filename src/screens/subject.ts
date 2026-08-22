@@ -1,17 +1,54 @@
 import type { Lesson, StudentProfile, Subject } from '../types';
 
+/** Where the "generate a lesson" card is in its lifecycle. */
+export type GenerateState = 'idle' | 'working' | 'queued' | 'exhausted';
+
 interface SubjectPageOptions {
   subject: Subject;
   lessons: Lesson[];
   profile: StudentProfile | null;
   isOnline: boolean;
+  generateState: GenerateState;
   onSelectLesson: (lessonId: number) => void;
   onStartBoss: (subject: Subject) => void;
+  onGenerateLesson: () => void;
   onGoBack: () => void;
 }
 
 function getLevelFromXP(xp: number): number {
   return Math.floor(xp / 200) + 1;
+}
+
+/**
+ * Copy for the generate card.
+ *
+ * The offline wording matters: pressing the button with no connection is a
+ * supported path, not a failure. The request becomes a durable sync-queue row
+ * and drains on reconnect, so the student should be told that plainly rather
+ * than shown a disabled button.
+ */
+function generateCopy(options: SubjectPageOptions): string {
+  switch (options.generateState) {
+    case 'working':
+      return 'Writing a new lesson…';
+    case 'queued':
+      return 'Queued. This will be written the next time you are online — you can keep working.';
+    case 'exhausted':
+      return 'You have generated every extra topic available for this grade.';
+    default:
+      return options.isOnline
+        ? 'Ask the AI tutor to write you a new lesson on a topic you have not covered yet.'
+        : 'You are offline. Ask anyway — the lesson will be queued and written when you reconnect.';
+  }
+}
+
+function generateLabel(options: SubjectPageOptions): string {
+  switch (options.generateState) {
+    case 'working':   return '✨ Generating…';
+    case 'queued':    return '✨ Queue another';
+    case 'exhausted': return 'All topics generated';
+    default:          return options.isOnline ? '✨ Generate a new lesson' : '✨ Queue a new lesson';
+  }
 }
 
 export function renderSubjectPage(options: SubjectPageOptions): HTMLElement {
@@ -72,6 +109,18 @@ export function renderSubjectPage(options: SubjectPageOptions): HTMLElement {
         </div>
 
         <div class="progress-section">
+          <h2>More ${subjectTitle}</h2>
+          <div class="mastery-card">
+            <p>${generateCopy(options)}</p>
+            <button
+              class="btn-boss ${isMath ? '' : 'ela'}"
+              data-generate="1"
+              ${options.generateState === 'working' || options.generateState === 'exhausted' ? 'disabled' : ''}
+            >${generateLabel(options)}</button>
+          </div>
+        </div>
+
+        <div class="progress-section">
           <h2>${subjectTitle} Boss Battle</h2>
           <div class="mastery-card">
             <p>Test your skills against the ${subjectTitle} boss!</p>
@@ -97,6 +146,11 @@ export function renderSubjectPage(options: SubjectPageOptions): HTMLElement {
   // Wire up Boss button
   const bossBtn = container.querySelector(`[data-action="boss-${options.subject}"]`);
   bossBtn?.addEventListener('click', () => options.onStartBoss(options.subject));
+
+  // data-generate, not data-action: the global delegator in main.ts treats every
+  // data-action as a route and would fire a second render mid-generation.
+  const generateBtn = container.querySelector('[data-generate]');
+  generateBtn?.addEventListener('click', () => options.onGenerateLesson());
 
   return container;
 }

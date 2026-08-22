@@ -1,4 +1,5 @@
 import type { StudentProfile } from '../types.ts';
+import { escapeHtml } from '../utils/escape';
 
 interface SidebarOptions {
   profile: StudentProfile | null;
@@ -44,9 +45,9 @@ export function renderSidebar(options: SidebarOptions): HTMLElement {
     </nav>
     
     <div class="sidebar-footer">
-      <div class="student-avatar">${initials}</div>
+      <div class="student-avatar">${escapeHtml(initials)}</div>
       <div class="student-info">
-        <div class="student-name">${nickname}</div>
+        <div class="student-name">${escapeHtml(nickname)}</div>
         <div class="student-level">
           <span class="level-dot" data-is-online="${options.isOnline}"></span>
           Level ${currentLevel} · ${options.isOnline ? 'Online' : 'Offline'}

@@ -5,6 +5,7 @@
 // Nothing reads profile.totalXP, which is mutated in memory but never written back.
 
 import type { Lesson, Progress, StudentProfile, Subject } from '../types.ts';
+import { escapeHtml } from '../utils/escape';
 
 export interface DashboardOptions {
   profile: StudentProfile | null;
@@ -29,15 +30,6 @@ let activeFilter: Filter = 'all';
 
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
 
 function answeredCount(lesson: Lesson): number {
   return lesson.questions.filter((q) => q.answered).length;

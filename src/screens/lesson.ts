@@ -1,4 +1,5 @@
 import type { Lesson, StudentProfile } from '../types.ts';
+import { escapeHtml } from '../utils/escape';
 
 export interface TutorMessage {
   id: string;
@@ -15,15 +16,6 @@ interface LessonScreenOptions {
   onGoBack: () => void;
   onTakeQuiz: () => void;
   onSendMessage: (prompt: string) => Promise<void>;
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
 }
 
 export function renderLessonScreen(options: LessonScreenOptions): HTMLElement {

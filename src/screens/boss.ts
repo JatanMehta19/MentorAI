@@ -1,4 +1,5 @@
 import type { Lesson, Question, Subject } from '../types';
+import { escapeHtml } from '../utils/escape';
 
 export interface BossState {
   subject: Subject;
@@ -189,14 +190,14 @@ const question = getCurrentBossQuestion();
         </div>
         
         <div class="question-box">
-          <p class="question-prompt">${question.prompt}</p>
+          <p class="question-prompt">${escapeHtml(question.prompt)}</p>
         </div>
         
         <div class="choices-grid">
           ${question.choices.map((choice, idx) => `
             <button class="choice-btn" data-choice="${idx}" ${choice === question.choices[question.correctIndex] ? '' : ''}>
               <span class="choice-letter">${String.fromCharCode(65 + idx)}</span>
-              <span class="choice-text">${choice}</span>
+              <span class="choice-text">${escapeHtml(choice)}</span>
             </button>
           `).join('')}
         </div>
@@ -207,7 +208,7 @@ const question = getCurrentBossQuestion();
         </div>
         
         <div class="hint-popup" id="hint-popup" style="display: none;">
-          <strong>Hint:</strong> ${currentHint || 'No hint available'}
+          <strong>Hint:</strong> ${escapeHtml(currentHint || 'No hint available')}
         </div>
       </div>
     </div>
@@ -306,7 +307,7 @@ const question = getCurrentBossQuestion();
     options.onUseHint();
     if (hintPopup && currentHint) {
       hintPopup.style.display = 'block';
-      hintPopup.innerHTML = `<strong>Hint:</strong> ${currentHint}`;
+      hintPopup.innerHTML = `<strong>Hint:</strong> ${escapeHtml(currentHint)}`;
     }
   });
   

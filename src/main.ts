@@ -1,5 +1,6 @@
 // src/main.ts
 import './style.css';
+import { escapeHtml } from './utils/escape';
 import { seedLessons, getLessonsForGrade, createProfile, getCurrentProfile, getProgressForStudent, saveProgress, markQuestionAnswered, updateProfile, calculateStreak, getPendingSyncItems } from './db';
 import { initOfflineSync, registerSyncCallbacks, getConnectionStatus, isOnline as isNetworkOnline } from '../utils/offline';
 import { generateNextLesson, remainingTopics } from './generate';
@@ -37,15 +38,6 @@ let isTutorThinking = false;
 
 function uniqueMessageId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
 }
 
 function updateChatUI(): void {  // ← NEW: updates only the chat div, never re-renders whole page

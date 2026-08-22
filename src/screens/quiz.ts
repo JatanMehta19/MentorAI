@@ -1,4 +1,5 @@
 import type { Lesson, Question, Subject } from '../types';
+import { escapeHtml } from '../utils/escape';
 
 export interface QuizState {
   lesson: Lesson;
@@ -185,16 +186,16 @@ export function renderQuizScreen(options: QuizRenderOptions): HTMLElement {
         </div>
         
         <div class="quiz-card">
-          <div class="question-text">${question?.prompt || ''}</div>
+          <div class="question-text">${escapeHtml(question?.prompt || '')}</div>
           
           <div class="choices-grid">
             ${(question?.choices || []).map((choice, i) => `
-              <button class="choice-btn" data-choice="${i}">${choice}</button>
+              <button class="choice-btn" data-choice="${i}">${escapeHtml(choice)}</button>
             `).join('')}
           </div>
           
           <div class="hint-popup" id="hint-popup" style="display: none;">
-            <strong>💡 Hint:</strong> ${currentHint || ''}
+            <strong>💡 Hint:</strong> ${escapeHtml(currentHint || '')}
           </div>
         </div>
         

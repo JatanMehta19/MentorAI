@@ -1,4 +1,5 @@
 import type { StudentProfile, Lesson, Progress, Subject } from '../types';
+import { escapeHtml } from '../utils/escape';
 
 interface ProgressPageOptions {
   profile: StudentProfile | null;
@@ -122,7 +123,7 @@ export function renderProgressPage(options: ProgressPageOptions): HTMLElement {
       <div class="activity-item">
         <div class="activity-subject ${p.subject}">${p.subject === 'math' ? '📐' : '📖'}</div>
         <div class="activity-details">
-          <div class="activity-title">${p.lessonTitle}</div>
+          <div class="activity-title">${escapeHtml(p.lessonTitle)}</div>
           <div class="activity-meta">Score: ${p.score}% • +${p.xpEarned} XP</div>
         </div>
         <div class="activity-date">${new Date(p.completedAt).toLocaleDateString()}</div>

@@ -1,4 +1,5 @@
 import type { Lesson, StudentProfile, Subject } from '../types';
+import { escapeHtml } from '../utils/escape';
 
 /** Where the "generate a lesson" card is in its lifecycle. */
 export type GenerateState = 'idle' | 'working' | 'queued' | 'exhausted';
@@ -94,7 +95,7 @@ export function renderSubjectPage(options: SubjectPageOptions): HTMLElement {
           <div class="lesson-grid">
             ${options.lessons.length > 0 ? options.lessons.map(lesson => `
               <div class="lesson-card" data-lesson-id="${lesson.id}">
-                <div class="lesson-card-title">${lesson.title}</div>
+                <div class="lesson-card-title">${escapeHtml(lesson.title)}</div>
                 <div class="lesson-card-meta">Grade ${lesson.grade} • ${lesson.language.toUpperCase()}</div>
                 <div class="lesson-card-questions">${lesson.questions.length} questions</div>
                 <button class="btn-start-lesson ${isMath ? '' : 'ela'}" data-action="start-lesson-${lesson.id}">Start Lesson</button>

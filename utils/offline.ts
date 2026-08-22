@@ -248,6 +248,13 @@ async function processSyncItem(item: SyncQueueItem): Promise<boolean> {
  * If online: runs the action immediately.
  * If offline: runs the fallback (addToSyncQueue) instead.
  *
+ * `shouldQueue` decides what happens when the online attempt fails. It defaults
+ * to queueing everything, which is right for a network fault and wrong for a
+ * refusal: a request the server has already rejected will be rejected again on
+ * all three retries, and the student gets told they are offline while they are
+ * plainly not. Returning false rethrows instead, leaving the caller to say
+ * something truthful.
+ *
  * Usage:
  *   await withOfflineSupport(
  *     () => generateProgressReport(nickname, scores),
@@ -256,12 +263,14 @@ async function processSyncItem(item: SyncQueueItem): Promise<boolean> {
  */
 export async function withOfflineSupport<T>(
   onlineAction:    () => Promise<T>,
-  offlineFallback: () => Promise<void>
+  offlineFallback: () => Promise<void>,
+  shouldQueue:     (err: unknown) => boolean = () => true
 ): Promise<T | null> {
   if (isOnline()) {
     try {
       return await onlineAction();
-    } catch {
+    } catch (err) {
+      if (!shouldQueue(err)) throw err;
       await offlineFallback();
       return null;
     }

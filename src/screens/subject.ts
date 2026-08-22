@@ -2,7 +2,7 @@ import type { Lesson, StudentProfile, Subject } from '../types';
 import { escapeHtml } from '../utils/escape';
 
 /** Where the "generate a lesson" card is in its lifecycle. */
-export type GenerateState = 'idle' | 'working' | 'queued' | 'exhausted';
+export type GenerateState = 'idle' | 'working' | 'queued' | 'exhausted' | 'busy';
 
 interface SubjectPageOptions {
   subject: Subject;
@@ -36,6 +36,8 @@ function generateCopy(options: SubjectPageOptions): string {
       return 'Queued. This will be written the next time you are online — you can keep working.';
     case 'exhausted':
       return 'You have generated every extra topic available for this grade.';
+    case 'busy':
+      return 'The AI tutor has hit its limit for the moment. Give it a minute and try again.';
     default:
       return options.isOnline
         ? 'Ask the AI tutor to write you a new lesson on a topic you have not covered yet.'
@@ -48,6 +50,7 @@ function generateLabel(options: SubjectPageOptions): string {
     case 'working':   return '✨ Generating…';
     case 'queued':    return '✨ Queue another';
     case 'exhausted': return 'All topics generated';
+    case 'busy':      return '✨ Try again shortly';
     default:          return options.isOnline ? '✨ Generate a new lesson' : '✨ Queue a new lesson';
   }
 }

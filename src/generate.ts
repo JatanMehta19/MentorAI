@@ -10,17 +10,20 @@
 // an explicit action.
 
 import { addToSyncQueue, saveLesson, countGeneratedLessons } from './db';
-import { generateLesson } from './gemini';
+import { generateLesson, isPermanentFailure, isRateLimitFailure } from './gemini';
 import { topicCount } from './topics';
 import { withOfflineSupport } from '../utils/offline';
 import type { Subject, Grade } from './types';
 
 /**
  * What happened when a student asked for a new lesson.
- * `queued` covers both "offline" and "the call failed" — in each case the work
- * is now a durable row that the sync engine will drain later.
+ *
+ * `queued` means the work is a durable row the sync engine will drain later —
+ * the device was offline, or the call failed in a way retrying can fix.
+ * `busy` means the proxy refused on quota grounds, which queueing would not
+ * fix and which has nothing to do with being offline.
  */
-export type GenerateOutcome = 'created' | 'queued' | 'exhausted';
+export type GenerateOutcome = 'created' | 'queued' | 'exhausted' | 'busy';
 
 /** How many topics remain ungenerated for this subject and grade. */
 export async function remainingTopics(subject: Subject, grade: Grade): Promise<number> {
@@ -48,16 +51,26 @@ export async function generateNextLesson(
 
   if (topicIndex >= topicCount(subject, grade)) return 'exhausted';
 
-  const lesson = await withOfflineSupport(
-    async () => {
-      const generated = await generateLesson(subject, grade, topicIndex, 'en');
-      await saveLesson(generated);
-      return generated;
-    },
-    async () => {
-      await addToSyncQueue('generate_lesson', { subject, grade, topicIndex });
-    }
-  );
+  try {
+    const lesson = await withOfflineSupport(
+      async () => {
+        const generated = await generateLesson(subject, grade, topicIndex, 'en');
+        await saveLesson(generated);
+        return generated;
+      },
+      async () => {
+        await addToSyncQueue('generate_lesson', { subject, grade, topicIndex });
+      },
+      // Queue transient faults; refuse to queue anything the proxy already
+      // rejected, since all three retries would be spent re-sending it.
+      (err) => !isPermanentFailure(err)
+    );
 
-  return lesson ? 'created' : 'queued';
+    return lesson ? 'created' : 'queued';
+  } catch (err) {
+    if (isRateLimitFailure(err)) return 'busy';
+    // Any other 4xx means this build is sending a request the proxy does not
+    // accept — a bug worth surfacing rather than swallowing.
+    throw err;
+  }
 }

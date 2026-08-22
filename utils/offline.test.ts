@@ -23,6 +23,7 @@ import {
   registerSyncCallbacks,
   resetSyncCallbacks,
   isOnline,
+  withOfflineSupport,
   getConnectionStatus,
 } from './offline';
 import { db, addToSyncQueue, getPendingSyncItems } from '../src/db';
@@ -334,5 +335,74 @@ describe('callbacks', () => {
     // The queue drained despite the broken listener, and the engine is not stuck.
     expect(await getPendingSyncItems()).toHaveLength(0);
     expect(getConnectionStatus()).toBe('online');
+  });
+});
+
+describe('withOfflineSupport', () => {
+
+  it('runs the action and skips the fallback when online', async () => {
+    setOnline(true);
+    const action   = vi.fn().mockResolvedValue('done');
+    const fallback = vi.fn().mockResolvedValue(undefined);
+
+    await expect(withOfflineSupport(action, fallback)).resolves.toBe('done');
+    expect(fallback).not.toHaveBeenCalled();
+  });
+
+  it('skips the action and queues when offline', async () => {
+    setOnline(false);
+    const action   = vi.fn();
+    const fallback = vi.fn().mockResolvedValue(undefined);
+
+    await expect(withOfflineSupport(action, fallback)).resolves.toBeNull();
+    expect(action).not.toHaveBeenCalled();
+    expect(fallback).toHaveBeenCalledOnce();
+  });
+
+  it('queues when the online attempt fails', async () => {
+    setOnline(true);
+    const action   = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
+    const fallback = vi.fn().mockResolvedValue(undefined);
+
+    await expect(withOfflineSupport(action, fallback)).resolves.toBeNull();
+    expect(fallback).toHaveBeenCalledOnce();
+  });
+
+  it('rethrows instead of queueing when shouldQueue says no', async () => {
+    // A request the server already refused fails identically on every retry.
+    // Queueing it spends the whole retry budget and tells the student they are
+    // offline while they are plainly not.
+    setOnline(true);
+    const refused  = new Error('Too many requests.');
+    const action   = vi.fn().mockRejectedValue(refused);
+    const fallback = vi.fn().mockResolvedValue(undefined);
+
+    await expect(withOfflineSupport(action, fallback, () => false)).rejects.toBe(refused);
+    expect(fallback).not.toHaveBeenCalled();
+  });
+
+  it('still queues offline even when shouldQueue would veto', async () => {
+    // The veto is about how a *reply* was refused. With no connection there was
+    // no reply, so the queue is the only correct answer.
+    setOnline(false);
+    const action   = vi.fn();
+    const fallback = vi.fn().mockResolvedValue(undefined);
+
+    await expect(withOfflineSupport(action, fallback, () => false)).resolves.toBeNull();
+    expect(fallback).toHaveBeenCalledOnce();
+  });
+
+  it('passes the thrown error to the predicate', async () => {
+    setOnline(true);
+    const boom       = new Error('boom');
+    const shouldQueue = vi.fn().mockReturnValue(true);
+
+    await withOfflineSupport(
+      vi.fn().mockRejectedValue(boom),
+      vi.fn().mockResolvedValue(undefined),
+      shouldQueue,
+    );
+
+    expect(shouldQueue).toHaveBeenCalledWith(boom);
   });
 });

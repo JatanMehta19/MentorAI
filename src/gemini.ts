@@ -17,6 +17,42 @@ const PROXY_URL  = '/api/gemini';
 // server time out first; this is only a backstop for a hung proxy.
 const TIMEOUT_MS = 35000;
 
+// ── Errors ───────────────────────────────────────────────────────────────
+
+/**
+ * A rejection the proxy answered with, as opposed to a network failure that
+ * never got a reply.
+ *
+ * The status is what lets a caller tell "try later" from "this will fail the
+ * same way every time". Without it every failure looked alike, so a quota
+ * rejection got queued for retry and reported to the student as being offline.
+ */
+export class ProxyError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name   = 'ProxyError';
+    this.status = status;
+  }
+}
+
+/**
+ * True when retrying cannot change the outcome.
+ *
+ * Any 4xx: the request itself was refused. Queueing one spends all three
+ * retries re-sending something the proxy has already turned down. 5xx and
+ * network errors are transient and *should* be queued.
+ */
+export function isPermanentFailure(err: unknown): boolean {
+  return err instanceof ProxyError && err.status >= 400 && err.status < 500;
+}
+
+/** True when the request was refused on rate or quota grounds. */
+export function isRateLimitFailure(err: unknown): boolean {
+  return err instanceof ProxyError && err.status === 429;
+}
+
 // ── Core Fetch ────────────────────────────────────────────────────────────────
 
 /** Ask the proxy to run `action`, and return the model's text. */
@@ -38,7 +74,7 @@ async function callGemini(action: string, params: Record<string, unknown>): Prom
       { text?: string; error?: string } | null;
 
     if (!res.ok) {
-      throw new Error(data?.error ?? `Gemini proxy error: ${res.status}`);
+      throw new ProxyError(data?.error ?? `Gemini proxy error: ${res.status}`, res.status);
     }
     if (typeof data?.text !== 'string') {
       throw new Error('Gemini proxy returned no text.');

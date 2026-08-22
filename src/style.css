@@ -1,5 +1,9 @@
 /* ── Reset & Base ────────────────────────────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@400;500;600;700;800&display=swap');
+/* Self-hosted. This used to pull from fonts.googleapis.com, which Lighthouse
+   measured at 785ms of render-blocking time — the single largest blocker on
+   the page — and which Workbox cannot precache, so offline first paint fell
+   back to system fonts. See scripts/fetch-fonts.mjs. */
+@import './fonts.css';
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 

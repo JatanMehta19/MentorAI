@@ -11,12 +11,12 @@
   <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png" />
   <!-- iOS ignores the manifest icons and reads this instead. -->
   <link rel="apple-touch-icon" href="/icons/icon-180.png" />
-  <!-- Warms the connection for the Inter/Poppins @import at the top of style.css.
-       A second stylesheet link used to sit here pulling Figtree and Syne; no rule
-       in the CSS references either family, so it was a render-blocking request
-       for fonts that never got used. -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- Fonts are same-origin now, so the preconnects to fonts.googleapis.com and
+       fonts.gstatic.com that used to sit here have nothing to warm up.
+       Preloading the body face instead: the CSS that references it is itself a
+       render-blocking request, so without this the font is not discovered until
+       that stylesheet has parsed. -->
+  <link rel="preload" href="/fonts/inter-variable.woff2" as="font" type="font/woff2" crossorigin>
 </head>
 <body>
   <div id="app"></div>

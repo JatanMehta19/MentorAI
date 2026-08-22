@@ -88,8 +88,11 @@ export default defineConfig(({ mode }) => {
       VitePWA({
         registerType: 'autoUpdate',
         workbox: {
-          // Cache everything the app needs — JS, CSS, HTML, images, AND lesson JSONs
-          globPatterns: ['**/*.{js,ts,css,html,ico,png,svg,webp,json}'],
+          // Cache everything the app needs — JS, CSS, HTML, images, fonts, and
+          // the lesson JSONs. woff2 matters: without it the self-hosted faces are
+          // not precached and an offline first paint drops to system fonts, which
+          // is the exact problem self-hosting was meant to fix.
+          globPatterns: ['**/*.{js,ts,css,html,ico,png,svg,webp,json,woff2}'],
           // The proxy is a live network call; never serve it from cache.
           navigateFallbackDenylist: [/^\/api\//],
         },

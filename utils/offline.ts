@@ -184,26 +184,25 @@ async function processSyncItem(item: SyncQueueItem): Promise<boolean> {
     switch (item.type) {
 
       case 'replace_question': {
-        const { lessonId, questionIndex, subject, grade, topic, difficulty } = item.payload as {
+        const { lessonId, questionIndex, subject, grade, difficulty } = item.payload as {
           lessonId:      number;
           questionIndex: number;
-          subject:      Subject;
-          grade:        Grade;
-          topic:       string;
-          difficulty:   1 | 2 | 3;
+          subject:       Subject;
+          grade:         Grade;
+          difficulty:    1 | 2 | 3;
         };
-        const newQuestion = await replaceQuestion(subject, grade, topic, difficulty);
+        const newQuestion = await replaceQuestion(subject, grade, difficulty);
         await replaceQuestionInLesson(lessonId, questionIndex, newQuestion);
         return true;
       }
 
       case 'generate_lesson': {
-        const { subject, grade, topic } = item.payload as {
-          subject: Subject;
-          grade:   Grade;
-          topic:   string;
+        const { subject, grade, topicIndex } = item.payload as {
+          subject:    Subject;
+          grade:      Grade;
+          topicIndex: number;
         };
-        const lesson = await generateLesson(subject, grade, topic, 'en');
+        const lesson = await generateLesson(subject, grade, topicIndex, 'en');
         await saveLesson(lesson);
         return true;
       }

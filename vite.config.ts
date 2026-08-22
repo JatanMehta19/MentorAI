@@ -46,13 +46,13 @@ function geminiLocalProxy(apiKey: string | undefined): Plugin {
     req.on('data', (chunk) => { raw += chunk; });
     req.on('end', () => {
       void (async () => {
-        let prompt: unknown;
+        let body: { action?: unknown; params?: unknown };
         try {
-          prompt = (JSON.parse(raw) as { prompt?: unknown }).prompt;
+          body = JSON.parse(raw) as { action?: unknown; params?: unknown };
         } catch {
           return send(400, { error: 'Invalid JSON body.' });
         }
-        const result = await proxyGemini(prompt, apiKey);
+        const result = await proxyGemini(body.action, body.params, apiKey);
         send(result.status, result.body);
       })();
     });

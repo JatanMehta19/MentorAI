@@ -7,6 +7,6 @@ export default defineConfig({
     // so it needs a DOM. Node's default environment has none of them.
     environment: 'jsdom',
     setupFiles:  ['./vitest.setup.ts'],
-    include:     ['utils/**/*.test.ts', 'src/**/*.test.ts'],
+    include:     ['utils/**/*.test.ts', 'src/**/*.test.ts', 'api/**/*.test.ts'],
   },
 });

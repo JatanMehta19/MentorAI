@@ -5,6 +5,7 @@
 
 import Dexie, { type EntityTable } from 'dexie';
 import type { Lesson, Question, Progress, StudentProfile, SyncQueueItem, Subject, Grade, Language } from './types';
+import { topicCount } from './topics';
 
 // ── Database Setup ────────────────────────────────────────────────────────────
 
@@ -155,27 +156,33 @@ export async function markQuestionAnswered(
   // state is unchanged, so any queue item it would produce is already pending.
   if (wasAlreadyCorrect) return;
 
-  // Queue Gemini replacement if answered correctly and not at max difficulty
+  // Queue Gemini replacement if answered correctly and not at max difficulty.
+  // No topic is sent: it used to be lesson.title, which on a generated lesson
+  // is model output, so the model's own words fed the next prompt.
   if (isCorrect && currentQ.difficulty < 3) {
     await addToSyncQueue('replace_question', {
       lessonId:      lessonId,
       questionIndex: questionIndex,
-      subject:      lesson.subject,
-      grade:        lesson.grade,
-      topic:       lesson.title,
-      difficulty:  currentQ.difficulty,
+      subject:       lesson.subject,
+      grade:         lesson.grade,
+      difficulty:    currentQ.difficulty,
     });
   }
 
-  // Auto-queue entire new lesson the moment the student aces the whole lesson
+  // Auto-queue an entire new lesson the moment the student aces this one.
+  // The topic is an index into the shared catalogue, resolved server-side.
+  // If every topic for this subject and grade is used, queue nothing rather
+  // than enqueue work the proxy will reject.
   const allCorrect = lesson.questions.every(q => q.answered && q.correct);
   if (allCorrect) {
-    await addToSyncQueue('generate_lesson', {
-      subject:  lesson.subject,
-      grade:    lesson.grade,
-      language: lesson.language,
-      topic:    lesson.title,
-    });
+    const topicIndex = await countGeneratedLessons(lesson.subject, lesson.grade);
+    if (topicIndex < topicCount(lesson.subject, lesson.grade)) {
+      await addToSyncQueue('generate_lesson', {
+        subject: lesson.subject,
+        grade:   lesson.grade,
+        topicIndex,
+      });
+    }
   }
 }
 
@@ -280,6 +287,20 @@ export function calculateStreak(lastActive: string, currentStreak: number): numb
   if (diffDays === 0) return currentStreak;
   if (diffDays === 1) return currentStreak + 1;
   return 1;
+}
+
+/**
+ * How many AI-generated lessons already exist for this subject and grade.
+ *
+ * Doubles as the next index into the topic catalogue, which is why both the
+ * generate button and the ace-a-lesson trigger read it. Filtered in memory
+ * rather than indexed — the table holds tens of rows, and a dedicated index
+ * would cost a schema migration for no measurable gain.
+ */
+export async function countGeneratedLessons(subject: Subject, grade: Grade): Promise<number> {
+  return db.lessons
+    .filter(l => l.subject === subject && l.grade === grade && !l.isPreloaded)
+    .count();
 }
 
 // ── Sync Queue ────────────────────────────────────────────────────────────────

@@ -1,10 +1,13 @@
 // api/gemini.ts
 // Serverless proxy that keeps the Gemini API key server-side.
-// The browser POSTs a prompt here and gets text back — it never sees the key.
+// The browser names an action and gets text back — it never sees the key, and it
+// never supplies prompt text.
 //
 // Runs on Vercel's Edge runtime in production. The exported helpers below are
 // reused by the local dev/preview middleware in vite.config.ts, so the two
 // entry points cannot drift apart.
+
+import { buildPrompt } from './prompts';
 
 export const config = { runtime: 'edge' };
 
@@ -15,6 +18,8 @@ declare const process: { env: Record<string, string | undefined> };
 const GEMINI_URL =
   'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent';
 
+// Every parameter that feeds a prompt is already length-capped in prompts.ts.
+// This is a backstop in case a builder grows a field and forgets one.
 const MAX_PROMPT_CHARS    = 8000;
 // Measured against gemini-3.6-flash generating a full five-question lesson:
 // ~11s, ~12s, ~52s over three runs. 15s cut off the tail, and the sync queue
@@ -28,12 +33,52 @@ export interface ProxyResult {
   body:   { text: string } | { error: string };
 }
 
+// ── Rate limiting ─────────────────────────────────────────────────────────────
+
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX       = 20;
+
+/**
+ * Per-instance request counters, keyed by caller.
+ *
+ * Edge instances do not share memory, so a caller spread across instances gets a
+ * higher effective ceiling than the constant suggests. This is a speed bump
+ * against a script hammering the endpoint, not a quota. A real limit needs shared
+ * state (Upstash, Vercel KV), which isn't worth a dependency here — the actual
+ * protection is that there is no longer a prompt parameter to abuse.
+ */
+const hits = new Map<string, { count: number; resetAt: number }>();
+
+export function isRateLimited(key: string, now: number = Date.now()): boolean {
+  const entry = hits.get(key);
+
+  if (!entry || now >= entry.resetAt) {
+    hits.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    // Expired rows would otherwise accumulate for the life of the instance.
+    if (hits.size > 1000) {
+      for (const [k, v] of hits) if (now >= v.resetAt) hits.delete(k);
+    }
+    return false;
+  }
+
+  entry.count++;
+  return entry.count > RATE_LIMIT_MAX;
+}
+
+/** Clear the counters. Used by tests; instances are short-lived in production. */
+export function resetRateLimit(): void {
+  hits.clear();
+}
+
 // ── Guards ────────────────────────────────────────────────────────────────────
 
 /**
  * Reject cross-origin callers.
- * Without this the deployed function is an open Gemini relay billed to our key.
  * Browsers always send Origin on a JSON POST, so a same-origin app is unaffected.
+ *
+ * A speed bump rather than a boundary: Origin is a header, and anything that is
+ * not a browser sets it freely. What actually closed the open-relay hole is that
+ * the caller can no longer supply prompt text at all — see prompts.ts.
  */
 export function isSameOrigin(origin: string | null, host: string | null): boolean {
   if (!origin || !host) return false;
@@ -47,22 +92,26 @@ export function isSameOrigin(origin: string | null, host: string | null): boolea
 // ── Core ──────────────────────────────────────────────────────────────────────
 
 /**
- * Forward a prompt to Gemini and return its text.
+ * Build the prompt for `action` and forward it to Gemini.
  *
  * Never forwards the upstream error body — it can echo request details including
  * the key. Callers get a status and a generic message instead.
  */
 export async function proxyGemini(
-  prompt: unknown,
+  action: unknown,
+  params: unknown,
   apiKey: string | undefined
 ): Promise<ProxyResult> {
   if (!apiKey) {
     return { status: 503, body: { error: 'AI is not configured on this deployment.' } };
   }
-  if (typeof prompt !== 'string' || prompt.trim() === '') {
-    return { status: 400, body: { error: 'Missing prompt.' } };
+
+  // Rejected before any upstream call, so a bad request costs nothing.
+  const built = buildPrompt(action, params);
+  if (!built.ok) {
+    return { status: 400, body: { error: built.error } };
   }
-  if (prompt.length > MAX_PROMPT_CHARS) {
+  if (built.prompt.length > MAX_PROMPT_CHARS) {
     return { status: 413, body: { error: 'Prompt too long.' } };
   }
 
@@ -71,11 +120,16 @@ export async function proxyGemini(
   const timeout    = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
 
   try {
-    const res = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-      signal:  controller.signal,
+    const res = await fetch(GEMINI_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        // A header rather than ?key= in the URL. Query strings turn up in access
+        // logs, proxy logs and error reports; headers generally do not.
+        'x-goog-api-key': apiKey,
+      },
+      body:   JSON.stringify({ contents: [{ parts: [{ text: built.prompt }] }] }),
+      signal: controller.signal,
     });
 
     if (!res.ok) {
@@ -86,10 +140,16 @@ export async function proxyGemini(
       candidates?: { content?: { parts?: { text?: string }[] } }[];
     };
 
-    // A blocked or empty completion is a real outcome, not a bug — guard every
-    // level rather than indexing straight through and throwing a TypeError.
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (typeof text !== 'string' || text === '') {
+    // Scan every part instead of indexing [0]. Thinking models interleave parts
+    // that carry a thoughtSignature and no text, so the first entry is not
+    // reliably the answer. A blocked or empty completion is a real outcome, not
+    // a bug, which is why it is a guarded 502 and not a TypeError.
+    const text = (data.candidates?.[0]?.content?.parts ?? [])
+      .map(part => part.text)
+      .filter((t): t is string => typeof t === 'string' && t !== '')
+      .join('');
+
+    if (text === '') {
       return { status: 502, body: { error: 'Gemini returned no usable content.' } };
     }
 
@@ -121,12 +181,19 @@ export default async function handler(req: Request): Promise<Response> {
     return json({ status: 403, body: { error: 'Forbidden.' } });
   }
 
-  let prompt: unknown;
+  // Vercel overwrites x-forwarded-for at the edge, so the first entry is the
+  // caller-facing IP rather than something the caller chose.
+  const caller = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  if (isRateLimited(caller)) {
+    return json({ status: 429, body: { error: 'Too many requests. Try again shortly.' } });
+  }
+
+  let body: { action?: unknown; params?: unknown };
   try {
-    prompt = (await req.json() as { prompt?: unknown }).prompt;
+    body = await req.json() as { action?: unknown; params?: unknown };
   } catch {
     return json({ status: 400, body: { error: 'Invalid JSON body.' } });
   }
 
-  return json(await proxyGemini(prompt, process.env.GEMINI_API_KEY));
+  return json(await proxyGemini(body.action, body.params, process.env.GEMINI_API_KEY));
 }

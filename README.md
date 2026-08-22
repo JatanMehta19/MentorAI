@@ -266,6 +266,73 @@ something escapes them. [`src/utils/escape.ts`](src/utils/escape.ts) is applied 
 interpolation of student or model text; it previously existed as three identical private
 copies, which is how it ended up covering 6 of 33 sites.
 
+## Performance
+
+The rule here is measure first, and report what the measurement says even when it says the
+planned optimisation was not worth doing. Raw Lighthouse reports and the method are in
+[`perf/`](perf/).
+
+Lighthouse, mobile preset, **6x CPU throttle**, against the local production preview so the
+deltas isolate code changes from CDN variance:
+
+| metric | before | after |
+|---|---|---|
+| Performance score | 99 | 99 |
+| First Contentful Paint | 1.7s | **1.5s** |
+| Speed Index | 1.7s | **1.5s** |
+| Main-thread work | 0.4s | **0.3s** |
+| Render-blocking requests | 3 | **2** |
+| Third-party origins | 1 | **0** |
+
+The score did not move because it was already 99 with 0ms of Total Blocking Time. A 47 kB
+bundle with no framework does not have a cold-load problem, which is itself the answer to
+"why no framework".
+
+**Self-hosted fonts.** The largest single blocker was not the app. Lighthouse measured the
+Google Fonts `@import` at 785ms of render-blocking time and 65.7 kB of transfer — more bytes
+than the entire JS bundle. [`scripts/fetch-fonts.mjs`](scripts/fetch-fonts.mjs) pulls the
+latin subset locally; Google serves eight subsets for a UI that is English-only.
+
+The first attempt made it worse: writing one file per weight produced five byte-identical
+copies of Inter, because Inter is a variable font and Google returns the same file for every
+weight. 274 kB, against the 65.7 kB it was replacing. Deduplicating by URL and emitting one
+`font-weight: 400 800` rule brought it to 85.5 kB on disk, of which a given page fetches only
+the weights it uses — 64 kB on the onboarding screen.
+
+Lighthouse predicted ~484ms of savings. The measured result was ~200ms off FCP and Speed
+Index. The durable win is the other one: **zero third-party origins**, and `woff2` added to
+the Workbox glob so typography now survives offline instead of dropping to system fonts.
+
+**A compound index, and an untested migration.** `getLessonsForGrade` runs
+`where({ grade, language })` on every subject navigation, and Dexie was warning at runtime
+that it wanted a `[grade+language]` index. Adding one requires a new schema version:
+
+| rows | before | after |
+|---|---|---|
+| 11 (a real student) | 0.5ms | 0.5ms |
+| 3,011 (synthetic) | 12.5ms | **5.8ms** |
+
+It earns nothing at real data sizes. It is in the schema because the query is O(rows)
+without it, and because `version(1)` with no migration ever run is a migration path nobody
+has tested.
+
+**The optimisation that was planned and then abandoned.** This README used to claim the full
+`innerHTML` rebuild on every navigation was "a visible stutter on a Snapdragon 400". It is
+not. At 74 DOM nodes a full teardown measures 1.1ms; the sidebar, which is rebuilt despite
+nothing in it changing but one class, is 0.4ms of that. Even multiplied by 6 it stays inside
+a 16.7ms frame, and Lighthouse independently reports 0ms Total Blocking Time. Keeping the
+sidebar mounted would have saved ~0.4ms and added a class of staleness bug, so it was not
+done and the claim was deleted.
+
+**One real bug, found while measuring it.** Clicking "Start Lesson" replaced the app root
+*twice*. `setupSubjectPageHandlers` ran inside `render()` — before `app.appendChild(layout)`
+— so `document.querySelector` found nothing, and a 100ms `setTimeout` was papering over the
+race. It also double-bound: the screen already wires that button through the callback it is
+passed, so one click ran two conflicting handlers, rendering the quiz screen and immediately
+replacing it with the lesson screen. Both deferred-binding helpers are gone, the screens own
+their wiring, and one click now renders once. `progress.ts` gained the `onNavigate` call it
+declared and never made.
+
 ## Current limitations
 
 This section is deliberately specific. Nothing below is fixed yet.
@@ -292,13 +359,14 @@ This section is deliberately specific. Nothing below is fixed yet.
   same browser's IndexedDB, so it could only ever show the student sitting at that device.
   It was unreachable from the UI and has been deleted rather than left as dead code —
   a real cross-device view needs a backend, which is out of scope for this project.
-- **Lesson queries miss a compound index.** Dexie warns that
-  `{ grade, language }` on `lessons` would benefit from a `[grade+language]` index. The
-  schema is still at `version(1)` with no migration path exercised.
-- **Typography depends on the network.** `src/style.css` `@import`s Inter and Poppins from
-  Google Fonts, which Workbox does not precache, so an offline first paint falls back to
-  system fonts. Self-hosting them would close the last network dependency on the render
-  path.
+- **The boss battle still rebuilds its question pool on every render.** Unmeasured, and
+  likely irrelevant at this data size — but it is the one hot path Day 3 did not put a
+  number on.
+- **Persistent storage is requested, not guaranteed.** `navigator.storage.persist()` runs at
+  boot, but the browser decides. Chrome grants it on site-engagement heuristics, so a first
+  visit is typically refused and an installed PWA typically is not. Nothing in the app can
+  force it; without it, an OS low on space may evict IndexedDB and take a student's whole
+  history with it.
 - **Free-text prompts are mitigated, not solved.** The tutor chat and writing feedback take
   text the student typed, which no enum can constrain. It is length-capped, delimited, and
   labelled as data with an instruction not to follow it — which lowers the odds of a

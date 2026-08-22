@@ -27,7 +27,7 @@ otherwise:
   request.
 - **TypeScript in strict mode**, because types compile away and cost nothing at runtime.
 
-The production bundle is 47.7 kB gzipped of JavaScript and 6.5 kB gzipped of CSS, plus ten
+The production bundle is 47.4 kB gzipped of JavaScript and 6.5 kB gzipped of CSS, plus ten
 lazily-loaded lesson chunks of roughly 0.6 kB each.
 
 ## Stack
@@ -194,6 +194,49 @@ encodes the PNGs with `node:zlib` alone, so no image library enters `devDependen
 four files. One full-bleed design serves both `any` and `maskable` because the mark sits
 inside the 80% safe zone Android crops to.
 
+## Talking to Gemini
+
+The browser never sends prompt text. It names an action and passes typed parameters:
+
+```ts
+POST /api/gemini  { action: 'generate_lesson', params: { subject, grade, topicIndex } }
+```
+
+[`api/prompts.ts`](api/prompts.ts) validates the parameters and assembles the prompt, and
+[`api/gemini.ts`](api/gemini.ts) forwards it. A request that fails validation is rejected
+before any upstream call, so a bad one costs nothing.
+
+This replaced a proxy that relayed whatever prompt string it was handed. It did check the
+`Origin` header — but `Origin` is a header, and anything that isn't a browser sets it freely,
+so the deployed function was a general-purpose Gemini endpoint billed to this project's key.
+The origin check is still there; it is now a speed bump rather than the only thing standing
+between the deployment and someone else's workload.
+
+Three details worth naming:
+
+- **Topics are indices, not strings.** `generate_lesson` takes a `topicIndex` into the shared
+  catalogue in [`src/topics.ts`](src/topics.ts), which the proxy resolves against its own copy.
+  The only thing a caller influences about that prompt is which of a fixed list of strings
+  gets used.
+- **`replace_question` sends no topic at all.** It used to pass `lesson.title`, which on a
+  generated lesson is model output — so the model's own words became the topic line of the
+  next prompt. Subject, grade and difficulty are enough, and none of them are free text.
+- **The key moved from the query string to a header.** `?key=` ends up in access logs, proxy
+  logs and error reports; `x-goog-api-key` generally does not.
+
+**Model output is treated as untrusted input on the way back.** `JSON.parse(...) as Question`
+was a promise to the compiler, not a check on the value.
+[`src/utils/validate.ts`](src/utils/validate.ts) verifies the shape by hand — no zod, which is
+~13 kB gzipped against a 47 kB bundle on a device chosen for being slow. A response that fails
+makes `generateLesson` throw, and because `processSyncItem` already catches and returns false,
+the sync engine turns that into a retry and then a drop with no changes to it.
+
+It also reaches the DOM as untrusted input. Every screen builds markup with template strings
+and `innerHTML`, so lesson titles, question prompts, choices and hints are markup unless
+something escapes them. [`src/utils/escape.ts`](src/utils/escape.ts) is applied at every
+interpolation of student or model text; it previously existed as three identical private
+copies, which is how it ended up covering 6 of 33 sites.
+
 ## Current limitations
 
 This section is deliberately specific. Nothing below is fixed yet.
@@ -202,17 +245,17 @@ This section is deliberately specific. Nothing below is fixed yet.
   `markQuestionAnswered`, but `startBossBattle` builds its question pool with
   `flatMap(l => l.questions)` and discards the lesson id, so boss answers cannot be attributed
   to a lesson. Wiring it needs `BossState` to carry `{ lessonId, questionIndex }`.
-- **The proxy forwards an arbitrary prompt.** `api/gemini.ts` keeps the key server-side and
-  rejects cross-origin callers, but it still relays whatever prompt it is given. Origin headers
-  are trivially forged outside a browser, so the endpoint could be used as a general-purpose
-  Gemini relay against the deployment's quota. The fix is an action-based API
-  (`{ action, params }`) that builds prompts server-side. There is no rate limiting.
-- **Model output is still parsed loosely.** The response envelope is now guarded and requests
-  time out after 15s, but `JSON.parse` still runs on model output after only stripping code
-  fences, prompts ask for JSON instead of using Gemini's `responseSchema` structured output,
-  and there's no retry on 429 or 503.
-- **Generated answers are unverified.** Nothing checks that a generated question's
-  `correctIndex` is actually correct, or even in range, before showing it to a student.
+- **Generated answers are checked for shape, not for truth.** `isValidQuestion` proves a
+  question is *presentable* — four non-empty choices, `correctIndex` an integer inside the
+  array, difficulty in range. Nothing verifies the marked answer is the mathematically
+  correct one. A confidently wrong question still reaches the student; it just can't crash
+  the grader any more.
+- **The prompts still ask for JSON rather than using `responseSchema`.** Gemini's structured
+  output would make malformed responses a non-event instead of something the validators have
+  to catch. There is also no retry on 429 or 503 — those become failed queue items.
+- **Rate limiting is per-instance.** The counter in `api/gemini.ts` lives in the memory of one
+  edge instance, and instances don't share state, so a caller spread across several gets a
+  higher effective ceiling than the constant suggests. A real limit needs Upstash or Vercel KV.
 - **There is no teacher view, by design.** A `src/screens/teacher.ts` existed but read the
   same browser's IndexedDB, so it could only ever show the student sitting at that device.
   It was unreachable from the UI and has been deleted rather than left as dead code —
@@ -224,13 +267,16 @@ This section is deliberately specific. Nothing below is fixed yet.
   Google Fonts, which Workbox does not precache, so an offline first paint falls back to
   system fonts. Self-hosting them would close the last network dependency on the render
   path.
-- **User input is not escaped consistently.** Screens build HTML with template strings and
-  `innerHTML`. An `escapeHtml` helper exists but is applied at only a few of those sites;
-  the student nickname reaches the DOM unescaped.
+- **Free-text prompts are mitigated, not solved.** The tutor chat and writing feedback take
+  text the student typed, which no enum can constrain. It is length-capped, delimited, and
+  labelled as data with an instruction not to follow it — which lowers the odds of a
+  successful injection without eliminating them. Everything else the app sends is an enum
+  or an index.
 - **No URL routing.** Navigation is held in module-level state, so a page refresh returns to
   the onboarding screen and no view is linkable.
-- **Test coverage stops at the sync engine.** `utils/offline.ts` is covered; the screens, the
-  Gemini parsing layer, and `db.ts` are not.
+- **Test coverage stops short of the screens.** The sync engine, the proxy, the prompt
+  builders, the output validators and the escaper are covered — 120 cases. The screens and
+  `db.ts` are not.
 
 ## Project history
 

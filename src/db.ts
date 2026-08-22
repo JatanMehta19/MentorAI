@@ -28,6 +28,23 @@ db.version(1).stores({
   syncQueue:      '++id, type, timestamp',
 });
 
+// getLessonsForGrade runs `where({ grade, language })`, which is the app's hottest
+// read — every navigation to a subject page and every dashboard refresh. With only
+// single-column indexes Dexie scans `grade` and filters `language` in memory, and
+// says so at runtime: "would benefit from a compound index [grade+language]".
+//
+// Adding an index needs a new version. Dexie rebuilds it during the upgrade, so no
+// .upgrade() callback is required, and only the table that changed has to be
+// restated — the other three carry forward from version 1 untouched.
+//
+// Honest about the payoff: at the ~11 rows a real student has, this is 0.5ms either
+// way and the index earns nothing. It is here because the query is O(rows) without
+// it, and because a schema that has never been migrated is a schema whose migration
+// path is untested.
+db.version(2).stores({
+  lessons: '++id, subject, grade, language, isPreloaded, [grade+language]',
+});
+
 export { db };
 
 // ── Lessons ───────────────────────────────────────────────────────────────────

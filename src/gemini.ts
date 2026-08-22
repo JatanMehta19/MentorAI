@@ -5,7 +5,11 @@ import type { Lesson, GeminiLessonResponse, Subject, Grade, Language, Question }
 // browser. Anything read via import.meta.env.VITE_* is inlined into the public
 // bundle at build time, so the key must never come back here.
 const PROXY_URL  = '/api/gemini';
-const TIMEOUT_MS = 15000;
+// Deliberately longer than the proxy's own 30s upstream timeout. When the two
+// were both 15s they raced, and the client usually won — turning a clean 504
+// from the proxy into an opaque AbortError with nothing to report. Let the
+// server time out first; this is only a backstop for a hung proxy.
+const TIMEOUT_MS = 35000;
 
 // ── Core Fetch ────────────────────────────────────────────────────────────────
 

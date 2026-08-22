@@ -16,7 +16,12 @@ const GEMINI_URL =
   'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent';
 
 const MAX_PROMPT_CHARS    = 8000;
-const UPSTREAM_TIMEOUT_MS = 15000;
+// Measured against gemini-3.6-flash generating a full five-question lesson:
+// ~11s, ~12s, ~52s over three runs. 15s cut off the tail, and the sync queue
+// then burned all three retries on the same doomed call. 30s also keeps the
+// function inside Vercel's Edge duration ceiling; anything slower than that is
+// left for the queue to retry, which is what the queue is for.
+const UPSTREAM_TIMEOUT_MS = 30000;
 
 export interface ProxyResult {
   status: number;

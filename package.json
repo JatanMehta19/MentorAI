@@ -1,17 +1,22 @@
 {
   "name": "mentorai",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
+  "description": "Offline-first web tutor for grades 6–8, covering math and ELA.",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "icons": "node scripts/generate-icons.mjs"
   },
   "devDependencies": {
-    "@types/canvas-confetti": "^1.9.0",
     "fake-indexeddb": "^6.0.0",
     "jsdom": "^24.1.0",
     "typescript": "^5.2.2",
@@ -20,9 +25,6 @@
     "vitest": "^1.6.0"
   },
   "dependencies": {
-    "canvas-confetti": "^1.9.4",
-    "dexie": "^4.4.2",
-    "gsap": "^3.15.0",
-    "lucide": "^1.11.0"
+    "dexie": "^4.4.2"
   }
 }

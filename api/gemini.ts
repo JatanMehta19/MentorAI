@@ -36,33 +36,57 @@ export interface ProxyResult {
 // ── Rate limiting ─────────────────────────────────────────────────────────────
 
 const RATE_LIMIT_WINDOW_MS = 60_000;
-const RATE_LIMIT_MAX       = 20;
+
+// Sized against the upstream quota rather than picked round. The Gemini free
+// tier allows this project roughly 10 requests per minute, shared across every
+// caller — so a per-caller ceiling of 20 was looser than the limit it was
+// supposed to protect, and two simultaneous visitors could exceed Gemini's
+// quota without this noticing.
+const RATE_LIMIT_MAX        = 8;   // one caller cannot exhaust the project alone
+const RATE_LIMIT_GLOBAL_MAX = 10;  // matches the free-tier project ceiling
+
+const GLOBAL_KEY = '__global__'; // not a valid IP, so it cannot collide with a caller
 
 /**
- * Per-instance request counters, keyed by caller.
+ * Per-instance request counters: one row per caller, plus one for the instance
+ * as a whole.
  *
- * Edge instances do not share memory, so a caller spread across instances gets a
- * higher effective ceiling than the constant suggests. This is a speed bump
- * against a script hammering the endpoint, not a quota. A real limit needs shared
- * state (Upstash, Vercel KV), which isn't worth a dependency here — the actual
- * protection is that there is no longer a prompt parameter to abuse.
+ * The honest caveat is that edge instances do not share memory, so N instances
+ * permit N × the global ceiling. That makes this a good approximation for the
+ * traffic a portfolio demo actually sees — usually one warm instance — and not
+ * a real quota. A real one needs shared state (Upstash, Vercel KV), which isn't
+ * worth a dependency here; the actual protection against abuse is that there is
+ * no longer a prompt parameter to abuse.
+ *
+ * The point of the global row is narrower: keep the app inside its own free-tier
+ * quota so visitors get served, instead of discovering the limit as upstream
+ * 429s halfway through a demo.
  */
 const hits = new Map<string, { count: number; resetAt: number }>();
 
-export function isRateLimited(key: string, now: number = Date.now()): boolean {
+function bump(key: string, max: number, now: number): boolean {
   const entry = hits.get(key);
 
   if (!entry || now >= entry.resetAt) {
     hits.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
-    // Expired rows would otherwise accumulate for the life of the instance.
-    if (hits.size > 1000) {
-      for (const [k, v] of hits) if (now >= v.resetAt) hits.delete(k);
-    }
     return false;
   }
 
   entry.count++;
-  return entry.count > RATE_LIMIT_MAX;
+  return entry.count > max;
+}
+
+export function isRateLimited(key: string, now: number = Date.now()): boolean {
+  // Expired rows would otherwise accumulate for the life of the instance.
+  if (hits.size > 1000) {
+    for (const [k, v] of hits) if (now >= v.resetAt) hits.delete(k);
+  }
+
+  // Both counters always advance: short-circuiting would let a caller who is
+  // already over their own limit avoid being counted against the global one.
+  const caller = bump(key, RATE_LIMIT_MAX, now);
+  const global = bump(GLOBAL_KEY, RATE_LIMIT_GLOBAL_MAX, now);
+  return caller || global;
 }
 
 /** Clear the counters. Used by tests; instances are short-lived in production. */

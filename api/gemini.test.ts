@@ -181,28 +181,38 @@ describe('proxyGemini upstream', () => {
 
 describe('isRateLimited', () => {
 
-  it('allows a caller up to the ceiling', () => {
-    const now = 1_000_000;
-    for (let i = 0; i < 20; i++) {
-      expect(isRateLimited('1.2.3.4', now)).toBe(false);
+  const NOW = 1_000_000;
+
+  it('allows a caller up to their own ceiling', () => {
+    for (let i = 0; i < 8; i++) {
+      expect(isRateLimited('1.2.3.4', NOW)).toBe(false);
     }
   });
 
-  it('blocks the request past the ceiling', () => {
-    const now = 1_000_000;
-    for (let i = 0; i < 20; i++) isRateLimited('1.2.3.4', now);
-    expect(isRateLimited('1.2.3.4', now)).toBe(true);
+  it('blocks a caller past their own ceiling', () => {
+    for (let i = 0; i < 8; i++) isRateLimited('1.2.3.4', NOW);
+    expect(isRateLimited('1.2.3.4', NOW)).toBe(true);
   });
 
-  it('tracks callers independently', () => {
-    const now = 1_000_000;
-    for (let i = 0; i < 21; i++) isRateLimited('1.2.3.4', now);
-    expect(isRateLimited('5.6.7.8', now)).toBe(false);
+  it('keeps the instance inside the free-tier project quota', () => {
+    // The Gemini free tier gives this project ~10 requests a minute across every
+    // caller, so a purely per-caller limit would let two visitors exceed it. One
+    // caller spends 8, leaving room for exactly 2 more from anyone.
+    for (let i = 0; i < 8; i++) isRateLimited('1.2.3.4', NOW);
+    expect(isRateLimited('5.6.7.8', NOW)).toBe(false); // global 9
+    expect(isRateLimited('5.6.7.8', NOW)).toBe(false); // global 10
+    expect(isRateLimited('5.6.7.8', NOW)).toBe(true);  // global 11 — over quota
   });
 
-  it('lets the window expire', () => {
-    const now = 1_000_000;
-    for (let i = 0; i < 21; i++) isRateLimited('1.2.3.4', now);
-    expect(isRateLimited('1.2.3.4', now + 60_001)).toBe(false);
+  it('counts a rejected caller against the global total', () => {
+    // Short-circuiting on the per-caller check would let someone already over
+    // their own limit keep hammering without touching the global counter.
+    for (let i = 0; i < 12; i++) isRateLimited('1.2.3.4', NOW);
+    expect(isRateLimited('5.6.7.8', NOW)).toBe(true);
+  });
+
+  it('lets both windows expire together', () => {
+    for (let i = 0; i < 12; i++) isRateLimited('1.2.3.4', NOW);
+    expect(isRateLimited('1.2.3.4', NOW + 60_001)).toBe(false);
   });
 });

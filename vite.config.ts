@@ -1,7 +1,7 @@
 // vite.config.ts
 import { defineConfig, loadEnv, type Plugin } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
-import { proxyGemini, isSameOrigin } from './api/gemini';
+import { proxyGemini, isSameOrigin, isRateLimited } from './api/gemini';
 
 // This file runs in Node at config time and sits outside the browser typecheck
 // program, so the Node request/response shapes are described structurally here
@@ -25,7 +25,8 @@ interface NodeRes {
  * how the app gets verified in a browser, and without it AI calls would fail
  * there while appearing to work in dev.
  *
- * Delegates to the same proxyGemini/isSameOrigin used by the real function.
+ * Delegates to the same proxyGemini/isSameOrigin/isRateLimited the real function
+ * uses, so a guard cannot exist in one entry point and not the other.
  */
 function geminiLocalProxy(apiKey: string | undefined): Plugin {
   const handle = (req: NodeReq, res: NodeRes): void => {
@@ -40,6 +41,13 @@ function geminiLocalProxy(apiKey: string | undefined): Plugin {
     const origin = typeof req.headers.origin === 'string' ? req.headers.origin : null;
     const host   = typeof req.headers.host   === 'string' ? req.headers.host   : null;
     if (!isSameOrigin(origin, host)) return send(403, { error: 'Forbidden.' });
+
+    // Dev has no x-forwarded-for, so every local request shares one bucket.
+    // The point is that the 429 path is reachable here at all: without it the
+    // rate limit would first be exercised in production.
+    if (isRateLimited('local')) {
+      return send(429, { error: 'Too many requests. Try again shortly.' });
+    }
 
     let raw = '';
     req.setEncoding('utf8');

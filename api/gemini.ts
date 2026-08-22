@@ -21,12 +21,22 @@ const GEMINI_URL =
 // Every parameter that feeds a prompt is already length-capped in prompts.ts.
 // This is a backstop in case a builder grows a field and forgets one.
 const MAX_PROMPT_CHARS    = 8000;
-// Measured against gemini-3.6-flash generating a full five-question lesson:
-// ~11s, ~12s, ~52s over three runs. 15s cut off the tail, and the sync queue
-// then burned all three retries on the same doomed call. 30s also keeps the
-// function inside Vercel's Edge duration ceiling; anything slower than that is
-// left for the queue to retry, which is what the queue is for.
-const UPSTREAM_TIMEOUT_MS = 30000;
+// Sized to fire just inside Vercel's platform ceiling, not to the model.
+//
+// Hobby caps an Edge function at 25s. A previous value of 30s could therefore
+// never fire: the platform killed the invocation first and answered with a
+// text/plain error page, so the client got neither this function's JSON nor a
+// status it could classify. Aborting at 22s keeps that decision here.
+//
+// Switching runtime does not buy headroom — Node functions on Hobby cap at 10s,
+// so Edge is the widest window available rather than a compromise.
+//
+// Generation latency measured against gemini-3.6-flash: 10.8s, 12.5s, 21.3s,
+// 41.1s, 51.8s. The tail genuinely exceeds any ceiling this plan offers, which
+// is why prompts.ts asks for a smaller lesson and the sync queue retries —
+// latency varies enough that a retry resamples rather than repeating a doomed
+// call.
+const UPSTREAM_TIMEOUT_MS = 22000;
 
 export interface ProxyResult {
   status: number;

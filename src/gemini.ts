@@ -11,11 +11,14 @@ import { isValidQuestion, isValidLessonResponse, asFreshQuestion, parseJsonLoose
 // deployed function being a general-purpose Gemini relay, and it keeps the
 // prompts out of the public bundle as a side effect.
 const PROXY_URL  = '/api/gemini';
-// Deliberately longer than the proxy's own 30s upstream timeout. When the two
+// Deliberately longer than the proxy's own 22s upstream timeout. When the two
 // were both 15s they raced, and the client usually won — turning a clean 504
 // from the proxy into an opaque AbortError with nothing to report. Let the
 // server time out first; this is only a backstop for a hung proxy.
-const TIMEOUT_MS = 35000;
+//
+// Also longer than Vercel's 25s ceiling, so that if the platform does kill the
+// invocation this still waits for whatever it sends back rather than racing it.
+const TIMEOUT_MS = 27000;
 
 // ── Errors ───────────────────────────────────────────────────────────────
 

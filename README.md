@@ -2,6 +2,8 @@
 
 [![CI](https://github.com/JatanMehta19/MentorAI/actions/workflows/ci.yml/badge.svg)](https://github.com/JatanMehta19/MentorAI/actions/workflows/ci.yml)
 
+**Live: https://mentor-ai-bice.vercel.app**
+
 An offline-first web tutor for grades 6–8, covering math and ELA. Students work through
 lessons, quizzes, and timed "boss battles" with no network connection — all content and
 progress live in the browser's IndexedDB. When a connection is available, Gemini generates
@@ -137,13 +139,40 @@ item. At `MAX_RETRIES` (3) the job is dropped so one poisoned row can't block th
 forever. If the connection drops mid-drain, the loop breaks and leaves the remaining rows
 for the next trigger.
 
-**Timeouts, measured.** Generating a five-question lesson with `gemini-3.6-flash` took
-10.8s, 12.5s and 51.8s across three runs. Both the client and the proxy were capped at 15s,
-so the slow tail was cut off — and because both used the same 15s, they raced, with the
-client usually winning and turning the proxy's clean 504 into an opaque `AbortError`. The
-proxy now gives upstream 30s, which also keeps it inside Vercel's Edge duration ceiling,
-and the client waits 35s so the server always times out first. Anything slower than that
-is left to the queue to retry, which is the queue's job.
+**Timeouts, measured — and re-measured after the first answer turned out to be wrong.**
+
+Generating a five-question lesson with `gemini-3.6-flash` took 10.8s, 12.5s, 21.3s, 41.1s
+and 51.8s across five runs. Both the client and the proxy were originally capped at 15s, so
+the tail was cut off — and because both used the *same* 15s they raced, with the client
+usually winning and turning the proxy's clean 504 into an opaque `AbortError`. Raising the
+proxy to 30s and the client to 35s fixed the race.
+
+It did not fix generation, and deploying proved why. `generate_lesson` came back as
+`504 FUNCTION_INVOCATION_TIMEOUT` at 25.1s: **Vercel caps a Hobby Edge function at 25s**, so
+a 30s abort could never fire. The platform killed the invocation first and answered with a
+`text/plain` error page — neither the function's own JSON nor a status the client could
+classify. Switching runtime buys nothing; Node functions on Hobby cap at 10s, so Edge is the
+widest window available rather than a compromise.
+
+Two changes, in order of certainty:
+
+- **The proxy aborts at 22s and the client waits 27s.** 22s fires ~3s inside the platform
+  ceiling, so the decision stays in application code and the caller gets structured JSON.
+- **Generated lessons ask for three questions, not five**, and a shorter body. Output tokens
+  are the dominant latency term. Constraining the model's thinking was tried first and
+  measured *worse* (`thinkingLevel: "low"` at 41.1s against a 21.3s baseline) — two samples
+  against a noisy distribution, so it proved nothing and was dropped.
+
+| | 5 questions | 3 questions |
+|---|---|---|
+| samples | 10.8, 12.5, 21.3, 41.1, 51.8s | 8.5, 9.5, 11.5, 14.2, 16.0s |
+| median | 21.3s | 11.5s |
+| worst | 51.8s | 16.0s |
+| inside the 22s abort | ~2/5 | 5/5 |
+
+The ten bundled JSON lessons still carry five questions; this only shapes what the model is
+asked to write. Anything still too slow is left to the queue, and because the latency varies
+this much, a retry genuinely resamples rather than repeating a doomed call.
 
 **`withOfflineSupport`** wraps a call so it runs immediately when online and enqueues a
 fallback when not, which keeps the branching out of the calling code. Its caller is the
@@ -253,9 +282,12 @@ This section is deliberately specific. Nothing below is fixed yet.
 - **The prompts still ask for JSON rather than using `responseSchema`.** Gemini's structured
   output would make malformed responses a non-event instead of something the validators have
   to catch. There is also no retry on 429 or 503 — those become failed queue items.
-- **Rate limiting is per-instance.** The counter in `api/gemini.ts` lives in the memory of one
-  edge instance, and instances don't share state, so a caller spread across several gets a
-  higher effective ceiling than the constant suggests. A real limit needs Upstash or Vercel KV.
+- **Rate limiting is per-instance.** Two counters in `api/gemini.ts` — 8/min per caller and
+  10/min for the instance, the latter sized to the Gemini free tier's ~10 requests a minute for
+  this project. But edge instances do not share memory, so N instances permit N times the
+  global ceiling. It approximates well for the traffic a portfolio demo sees and is not a real
+  quota; that needs Upstash or Vercel KV. The actual protection against abuse is that there is
+  no prompt parameter to abuse.
 - **There is no teacher view, by design.** A `src/screens/teacher.ts` existed but read the
   same browser's IndexedDB, so it could only ever show the student sitting at that device.
   It was unreachable from the UI and has been deleted rather than left as dead code —
@@ -275,8 +307,8 @@ This section is deliberately specific. Nothing below is fixed yet.
 - **No URL routing.** Navigation is held in module-level state, so a page refresh returns to
   the onboarding screen and no view is linkable.
 - **Test coverage stops short of the screens.** The sync engine, the proxy, the prompt
-  builders, the output validators and the escaper are covered — 120 cases. The screens and
-  `db.ts` are not.
+  builders, the output validators, the escaper and the failure classifiers are covered — 150
+  cases. The screens and `db.ts` are not.
 
 ## Project history
 

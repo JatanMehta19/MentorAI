@@ -87,6 +87,11 @@ export function buildPrompt(action: unknown, rawParams: unknown): BuildResult {
 
   switch (action) {
 
+    // Three questions rather than five, and a shorter body. Output tokens are
+    // the dominant term in generation latency, and Vercel's Hobby Edge ceiling
+    // is a hard 25s — a five-question lesson measured up to 51.8s and failed
+    // outright. The bundled JSON lessons still carry five; this only shapes
+    // what the model is asked to write.
     case 'generate_lesson': {
       const subject = asSubject(p.subject);
       const grade   = asGrade(p.grade);
@@ -105,7 +110,7 @@ Topic: "${topic}"
 Respond ONLY with valid JSON in exactly this shape — no explanation, no markdown:
 {
   "title": "short lesson title",
-  "content": "2-3 paragraphs of lesson explanation, age-appropriate for grade ${grade}",
+  "content": "1-2 paragraphs of lesson explanation, age-appropriate for grade ${grade}",
   "questions": [
     {
       "prompt": "question text",
@@ -120,7 +125,7 @@ Respond ONLY with valid JSON in exactly this shape — no explanation, no markdo
 }
 
 Rules:
-- Write exactly 5 questions
+- Write exactly 3 questions
 - Every question MUST have exactly 4 choices
 - correctIndex must be 0, 1, 2, or 3 and must point at the genuinely correct choice
 - Every question MUST include answered: false, correct: false, difficulty: 1

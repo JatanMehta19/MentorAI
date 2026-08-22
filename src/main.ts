@@ -159,7 +159,12 @@ async function render(): Promise<void> {
       isOnline,
       onSelectLesson: (lessonId) => {
         currentLessonId = lessonId;
-        currentPage = 'quiz';
+        // 'lesson', not 'quiz'. Two handlers used to fight over this: this one
+        // set 'quiz', and a second bound 100ms later by setupSubjectPageHandlers
+        // set 'lesson' and won. One click rendered the app root twice — the quiz
+        // screen appeared and was immediately replaced. 'lesson' is the screen
+        // that was actually reached, so it is the behaviour being preserved.
+        currentPage = 'lesson';
         render();
       },
       onStartBoss: (subject) => {
@@ -172,7 +177,6 @@ async function render(): Promise<void> {
       onGenerateLesson: () => void handleGenerateLesson(),
       onGoBack: () => navigateTo('dashboard'),
     });
-    setupSubjectPageHandlers();
   } else if (currentPage === 'lesson' && currentLessonId) {
     const selectedLesson = lessons.find(l => l.id === currentLessonId);
     if (selectedLesson) {
@@ -247,7 +251,6 @@ async function render(): Promise<void> {
       isOnline,
       onNavigate: (subject) => { void navigateTo(subject); }
     });
-    setupProgressPageHandlers();
   } else if (currentPage === 'settings') {
     mainContent = renderSettingsPlaceholder();
   } else if (currentPage === 'boss' && profile) {
@@ -516,36 +519,18 @@ async function tickStreak(): Promise<void> {
   profile = { ...profile, streak, lastActive };
 }
 
-function setupSubjectPageHandlers(): void {
-  setTimeout(() => {
-    const backBtn = document.querySelector('[data-action="back"]');
-    backBtn?.addEventListener('click', () => navigateTo('dashboard'));
-
-    const startLessonBtns = document.querySelectorAll('[data-action^="start-lesson-"]');
-    startLessonBtns.forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const target = e.currentTarget as HTMLElement;
-        const lessonId = parseInt(target.dataset.action!.replace('start-lesson-', ''), 10);
-        currentLessonId = lessonId;
-        currentPage = 'lesson';
-        render();
-      });
-    });
-  }, 100);
-}
-
-function setupProgressPageHandlers(): void {
-  setTimeout(() => {
-    document.querySelector('[data-action="continue-math"]')?.addEventListener('click', () => {
-      currentSubject = 'math';
-      navigateTo('math');
-    });
-    document.querySelector('[data-action="continue-ela"]')?.addEventListener('click', () => {
-      currentSubject = 'ela';
-      navigateTo('ela');
-    });
-  }, 100);
-}
+// setupSubjectPageHandlers and setupProgressPageHandlers used to live here.
+//
+// Both ran inside render(), which builds its nodes but does not attach them
+// until the final app.appendChild(layout). Querying `document` from inside
+// render therefore found nothing, and a 100ms setTimeout papered over that — a
+// race, not a delay. It also double-bound: the screens already wire their own
+// buttons through the callbacks they are passed, so one click on 'Start Lesson'
+// ran two conflicting handlers and rendered the app root twice.
+//
+// The screens now own their wiring, against their own container, where the
+// nodes always exist. Handlers respond on the first frame instead of 100ms
+// later, which is the part a student would actually have felt.
 
 
 // ── Sync Badge ────────────────────────────────────────────────────────────────
@@ -608,8 +593,27 @@ document.addEventListener('click', (e) => {
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 
+/**
+ * Ask the browser to stop treating this origin's storage as disposable.
+ *
+ * IndexedDB defaults to "best-effort": under storage pressure the browser is
+ * free to evict it, and older WebKit does so aggressively. On the target device
+ * — a cheap phone whose storage is permanently near full — that silently
+ * deletes every lesson, every score and the entire sync queue. For an app whose
+ * whole pitch is that progress survives, it is the worst available failure.
+ *
+ * Deliberately not awaited. The browser may refuse, there is nothing useful to
+ * do when it does, and boot must not wait on it.
+ */
+function requestPersistentStorage(): void {
+  void navigator.storage?.persist?.()
+    .then(granted => console.log(`[Storage] persistent: ${granted}`))
+    .catch(() => { /* unsupported, or refused — neither changes what we do */ });
+}
+
 async function init(): Promise<void> {
   app = document.getElementById('app')!;
+  requestPersistentStorage();
   await seedLessons();
   mountSyncBadge();   // must precede initOfflineSync — that call can drain immediately
   initOfflineSync();

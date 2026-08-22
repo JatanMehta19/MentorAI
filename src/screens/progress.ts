@@ -275,6 +275,15 @@ export function renderProgressPage(options: ProgressPageOptions): HTMLElement {
     </div>
   `;
 
+  // onNavigate was declared in the options and never called: the continue
+  // buttons only worked because main.ts re-queried the document 100ms later
+  // and bound them from outside. Wiring them here, against this container,
+  // removes the need to guess when the nodes are attached.
+  container.querySelector('[data-action="continue-math"]')
+    ?.addEventListener('click', () => options.onNavigate('math'));
+  container.querySelector('[data-action="continue-ela"]')
+    ?.addEventListener('click', () => options.onNavigate('ela'));
+
   return container;
 }
 

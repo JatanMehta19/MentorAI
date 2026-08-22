@@ -74,6 +74,9 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [
       geminiLocalProxy(env.GEMINI_API_KEY),
+      // The only service worker in the project. A hand-written public/sw.js used
+      // to ship alongside this one; nothing registered it and Workbox emitted to
+      // the same dist/sw.js path anyway, so it was silently overwritten at build.
       VitePWA({
         registerType: 'autoUpdate',
         workbox: {
@@ -90,9 +93,12 @@ export default defineConfig(({ mode }) => {
           background_color: '#0D0D1A',
           display:          'standalone',
           start_url:        '/',
+          // Built by scripts/generate-icons.mjs. Full-bleed with the mark inside
+          // the 80% safe zone, so one file covers both `any` and `maskable`
+          // rather than shipping a separate cropped variant.
           icons: [
-            { src: '/assets/icon-192.png', sizes: '192x192', type: 'image/png' },
-            { src: '/assets/icon-512.png', sizes: '512x512', type: 'image/png' },
+            { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
+            { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
           ],
         },
       }),

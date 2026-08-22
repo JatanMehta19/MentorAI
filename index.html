@@ -4,9 +4,19 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MentorAI</title>
+  <meta name="description" content="Offline-first web tutor for grades 6–8, covering math and ELA." />
+  <!-- Colours the Android address bar and the standalone splash screen. Must
+       match theme_color in the PWA manifest or the install looks half-branded. -->
+  <meta name="theme-color" content="#6C63FF" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png" />
+  <!-- iOS ignores the manifest icons and reads this instead. -->
+  <link rel="apple-touch-icon" href="/icons/icon-180.png" />
+  <!-- Warms the connection for the Inter/Poppins @import at the top of style.css.
+       A second stylesheet link used to sit here pulling Figtree and Syne; no rule
+       in the CSS references either family, so it was a render-blocking request
+       for fonts that never got used. -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@300..800&family=Syne:wght@400..800&display=swap" rel="stylesheet">
 </head>
 <body>
   <div id="app"></div>
